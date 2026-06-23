@@ -4,7 +4,7 @@
 
   [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
   [![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-blue)](https://python.org)
-  [![CI](https://img.shields.io/badge/CI-passing-brightgreen)](.github/workflows/ci.yml)
+  [![CI](https://github.com/CrossCraftAI/reggraph/actions/workflows/ci.yml/badge.svg)](https://github.com/CrossCraftAI/reggraph/actions/workflows/ci.yml)
 </div>
 
 ---
