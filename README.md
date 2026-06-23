@@ -20,6 +20,8 @@ itself — articles, obligations, rights, conditions, prohibitions — and reaso
 
 Every citation is checked against the real regulation graph. Hallucinated article
 references are caught **deterministically, with zero LLM cost**.
+High-confidence symbolic checks cover recurring regulatory patterns such as
+special-category data, withdrawal and erasure, and breach notification deadlines.
 
 | | Plain RAG | GraphRAG | RegGraph |
 |---|---|---|---|
@@ -70,6 +72,7 @@ uv run python -m agentic_reg.build --domain gdpr   # adds typed concept enrichme
 - **Typed regulatory knowledge graph** — clauses + concepts (obligation, right, condition, prohibition, …) with typed relations (requires, overrides, depends_on, exception_to, …)
 - **Multi-hop reasoning chains** — clause-to-clause paths across the regulation, not isolated matches
 - **Deterministic hallucination detection** — every `[article-N]` citation verified against the real graph, zero LLM cost
+- **Symbolic verification** — lightweight rules catch missing lawful-basis, erasure, and breach-deadline support
 - **Multi-agent team** — supervisor decomposes questions → specialists research → synthesis → verifier checks → self-corrects if needed
 - **Full audit trail** — every step exported as structured JSON, every claim traceable to a real clause
 - **Pluggable domains** — GDPR and UK DPA 2018 ship built-in; add a new regulation with one markdown file, no code changes
@@ -197,7 +200,7 @@ uv run python -m agentic_reg.eval --configs team,team-no-graph --limit 4
 
 ## Contributing
 
-Issues and PRs welcome. See [CLAUDE.md](CLAUDE.md) for architecture and conventions.
+Issues and PRs welcome.
 
 ```bash
 uv sync
