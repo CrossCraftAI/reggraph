@@ -32,6 +32,10 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["agentic_reg"]
+only-include = ["agentic_reg", "data"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"data" = "reggraph/data"
 
 [tool.ruff]
 line-length = 100

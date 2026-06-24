@@ -11,17 +11,30 @@
 
 ## Why RegGraph?
 
-Most regulatory RAG is **flat**: vector search → dump context → ask LLM → hope.  
-It loses the cross-references, conditions, and exceptions that *are* the regulation.
+Legal expertise is bounded by jurisdiction — most practitioners know *their* regulation
+cold but can't reason across borders. Meanwhile, startups scale at exponential pace,
+their data sloshing across GDPR, CCPA, UK DPA, PIPEDA with no systematic mapping
+between them. The result: either over-compliance (wasted effort) or under-compliance
+(regulatory risk).
 
-RegGraph keeps that structure. It builds a **typed knowledge graph** from the regulation
-itself — articles, obligations, rights, conditions, prohibitions — and reasons over the
-**paths between clauses**, not just the clauses in isolation.
+RegGraph models regulations as **comparable typed graphs** and traces reasoning chains
+across them. Give it a question about one regulation; it follows cross-references into
+related jurisdictions, showing equivalences, gaps, and conflicts. This is what a legal
+expert does when they say "under GDPR this requires article-9 consent… but CCPA has no
+special-category concept, so you need to close that gap contractually."
 
-Every citation is checked against the real regulation graph. Hallucinated article
-references are caught **deterministically, with zero LLM cost**.
-High-confidence symbolic checks cover recurring regulatory patterns such as
-special-category data, withdrawal and erasure, and breach notification deadlines.
+Under the hood, three primitives work together:
+
+1. **Typed graph construction** — regulation markdown → NetworkX graph with
+   obligations, rights, conditions, prohibitions, and cross-references. No LLM needed
+   (`--no-enrich`).
+2. **Deterministic citation verification** — every `[article-N]` reference checked
+   against the real graph. Hallucinated citations caught with zero LLM cost.
+3. **Symbolic compliance rules** — lightweight checks for recurring regulatory patterns
+   (special-category → must-cite-lawful-basis, breach → must-cite-72h-deadline).
+
+These aren't the product — they're the enablers. The product is **cross-jurisdictional
+reasoning chains** that show you what applies, what's missing, and why.
 
 | | Plain RAG | GraphRAG | RegGraph |
 |---|---|---|---|
@@ -31,31 +44,38 @@ special-category data, withdrawal and erasure, and breach notification deadlines
 | **Multi-hop clause paths** | ✗ | partial | ✓ |
 | **Deterministic citation check** | ✗ | ✗ | ✓ |
 | **Multi-agent verification** | ✗ | ✗ | ✓ |
+| **Cross-jurisdictional mapping** | ✗ | ✗ | ✓ |
 | **Pluggable domains** | ✗ | ✗ | ✓ |
 
 ## Architecture
 
 ```
-document → chunks → knowledge store → hybrid retrieval → agent team → answer + trace
+regulation A ──→ typed graph ──┐
+regulation B ──→ typed graph ──┼──→ cross-jurisdictional reasoning chains
+regulation C ──→ typed graph ──┘         │
+                                         ├─ equivalence mapping (A.9 ≈ B.10)
+                                         ├─ gap analysis (A requires X, C doesn't)
+                                         └─ delta chains (A → add Y → C compliant)
 
-                      ├─ vectors (Chroma)        ├─ vector search
-                      └─ typed graph (NetworkX)   ├─ graph expansion
-                                                    └─ multi-hop clause paths
-
-                          ┌─ supervisor (decomposes)
-agent team ───────────────┼─ specialists (clause & cross-reference analysts)
-  (LangGraph)             ├─ synthesis
-                          ├─ verification (deterministic + LLM)
-                          └─ self-correction (bounded, one pass)
+                  ┌─ supervisor (jurisdiction-aware decomposition)
+agent team ───────┼─ specialists (GDPR analyst, CCPA analyst, cross-ref analyst)
+  (LangGraph)     ├─ synthesis (jurisdictional delta)
+                  ├─ verification (deterministic citation check + symbolic rules)
+                  └─ self-correction (bounded, one pass)
 ```
 
 ## Quick Start
+
+> **⚠️ Work in Progress** — the core modules (providers, domains, graph, vectors, build
+> CLI, agent loop, eval harness) are under active development. The Quick Start commands
+> below will work once these land. Track progress in [TODO.md](TODO.md) and
+> [issue #1](https://github.com/CrossCraftAI/reggraph/issues/1).
 
 ```bash
 git clone https://github.com/CrossCraftAI/reggraph.git && cd reggraph
 uv sync
 uv run python -m agentic_reg.build --domain gdpr --no-enrich
-uv run streamlit run app.py
+uv run python -m agentic_reg.ask "What lawful bases allow processing of special category data?"
 ```
 
 No API keys. No config. `--no-enrich` builds a deterministic graph without an LLM.
@@ -69,14 +89,15 @@ uv run python -m agentic_reg.build --domain gdpr   # adds typed concept enrichme
 
 ## Features
 
-- **Typed regulatory knowledge graph** — clauses + concepts (obligation, right, condition, prohibition, …) with typed relations (requires, overrides, depends_on, exception_to, …)
+- **Cross-jurisdictional reasoning chains** — map obligations, rights, and prohibitions across regulations; trace equivalence, gap, and delta paths between GDPR, CCPA, UK DPA, and custom domains
+- **Typed regulatory knowledge graph** — clauses + concepts (obligation, right, condition, prohibition, …) with typed relations (requires, overrides, depends_on, exception_to, equivalent_to, conflicts_with, extends)
 - **Multi-hop reasoning chains** — clause-to-clause paths across the regulation, not isolated matches
-- **Deterministic hallucination detection** — every `[article-N]` citation verified against the real graph, zero LLM cost
-- **Symbolic verification** — lightweight rules catch missing lawful-basis, erasure, and breach-deadline support
-- **Multi-agent team** — supervisor decomposes questions → specialists research → synthesis → verifier checks → self-corrects if needed
-- **Full audit trail** — every step exported as structured JSON, every claim traceable to a real clause
+- **Deterministic citation verification** — every `[article-N]` citation verified against the real graph, zero LLM cost. No external API, no database lookup, no NLI model
+- **Symbolic verification** — lightweight rules catch missing lawful-basis, erasure, and breach-deadline support. Internally enables cross-jurisdictional compliance checks
+- **Multi-agent team** — supervisor decomposes questions → jurisdiction-aware specialists → synthesis with delta analysis → verifier checks → self-corrects if needed
+- **Full audit trail** — every step exported as structured JSON, every claim traceable to a real clause in a real regulation
 - **Pluggable domains** — GDPR and UK DPA 2018 ship built-in; add a new regulation with one markdown file, no code changes
-- **Evaluation harness** — citation F1, hallucination rate, multi-hop recall, LLM-judge quality scores
+- **Evaluation harness** — citation F1, hallucination rate, multi-hop recall, cross-jurisdictional reasoning chain recall, LLM-judge quality scores
 - **Vector-only ablation** — flip `AGENTIC_REG_USE_GRAPH=false` to isolate the graph's contribution
 
 ## How It Works
@@ -111,10 +132,10 @@ Every step — retrieval, specialist analysis, synthesis, verification verdict, 
 </td><td>
 
 **Run evaluation**  
-Compare architectures with the eval harness — same model, same cases, varying agent mode and graph usage.
+Compare RegGraph against a vanilla LangGraph baseline — same model, same index, same cases.
 
 ```bash
-uv run python -m agentic_reg.eval --configs single,team --limit 4
+uv run python -m agentic_reg.eval --configs reggraph,langgraph --limit 4
 ```
 
 </td></tr>
@@ -133,16 +154,29 @@ from agentic_reg.knowledge.vectors import VectorIndex
 from agentic_reg.providers import get_provider
 
 settings = get_settings()
-domain = get_domain("gdpr")
-vector_index = VectorIndex(domain.chroma_dir, settings.embedding_model)
-graph = KnowledgeGraph.load(domain.graph_path)
+gdpr = get_domain("gdpr")
+ccpa = get_domain("ccpa")  # drop in your regulation markdown
+
+# Build or load graphs — each regulation is a typed graph
+gdpr_graph = KnowledgeGraph.load(gdpr.graph_path)
+ccpa_graph = KnowledgeGraph.load(ccpa.graph_path)
+
 provider = get_provider(settings)
 
-orchestrator = get_orchestrator(settings, provider, vector_index, graph)
-trace = orchestrator.answer("What lawful bases allow processing of special category data?")
+# Cross-jurisdictional reasoning: GDPR → CCPA mapping
+orchestrator = get_orchestrator(settings, provider, gdpr_graph, ccpa_graph)
+trace = orchestrator.answer(
+    "Does my GDPR article-9 health data consent cover CCPA's requirements?"
+)
 
-print(trace.answer)
-print(trace.to_json())
+print(trace.answer)       # "No. CCPA has no special-category concept.
+                          #  Your GDPR consent satisfies article-9 but
+                          #  you need addt'l contractual safeguards for
+                          #  California residents because…"
+print(trace.reasoning_chain)  # GDPR.article-9 → equivalent_to? none
+                              # → gap: CCPA has no special-category
+                              # → delta: add contractual safeguards
+print(trace.to_json())    # full audit trail across both jurisdictions
 ```
 
 ### LLM Backends
@@ -176,27 +210,112 @@ External packages can ship domains via entry points — they auto-register on in
 
 ## Evaluation
 
+The eval harness compares RegGraph against a **vanilla LangGraph + ChromaDB
+baseline** — the same LLM, same vector index, same test cases. The only variable
+is the regulatory-specific architecture RegGraph adds on top.
+
 ```bash
-# Compare single agent vs multi-agent team (model held constant)
-uv run python -m agentic_reg.eval --configs single,team
+# RegGraph vs vanilla LangGraph baseline (the fair comparison)
+uv run python -m agentic_reg.eval --configs reggraph,langgraph
 
 # Quick ablation: measure the graph's contribution
-uv run python -m agentic_reg.eval --configs team,team-no-graph --limit 4
+uv run python -m agentic_reg.eval --configs reggraph,no-graph --limit 4
+
+# All three: full pipeline, LangGraph baseline, and vector-only
+uv run python -m agentic_reg.eval --configs reggraph,langgraph,no-graph
+
+# With LLM-judge for holistic quality scoring
+uv run python -m agentic_reg.eval --configs reggraph,langgraph --judge
+
+# Live mode: real LLM calls (incurs API cost)
+uv run python -m agentic_reg.eval --configs reggraph,langgraph --live --limit 4
 ```
 
-**Deterministic metrics** (citation F1, hallucination rate, multi-hop recall) — no LLM needed, fully reproducible.
+**Deterministic metrics** (citation F1, hallucination rate, multi-hop recall,
+symbolic check pass rate) — no LLM needed, fully reproducible. Run without
+`--live` for instant, cost-free metric validation.
 
-**LLM-judge** — holistic answer quality grading, excluded from the mean on failure.
+**Runtime metrics** (wall-clock time, token usage) — captured in `--live` mode.
 
-## Comparison
+**LLM-judge** — holistic answer quality grading across correctness, completeness,
+citation quality, and clarity.
 
-| Framework | Multi-agent | Graph-based | Regulatory focus | Deterministic verification | Pluggable domains |
-|-----------|:-----------:|:-----------:|:----------------:|:--------------------------:|:-----------------:|
-| **RegGraph** | ✓ | ✓ | ✓ | ✓ | ✓ |
-| CrewAI | ✓ | ✗ | ✗ | ✗ | ✗ |
-| LangGraph | ✓ | ✓ | ✗ | ✗ | ✗ |
-| Microsoft GraphRAG | ✗ | ✓ | ✗ | ✗ | ✗ |
-| Haystack | partial | ✗ | ✗ | ✗ | ✗ |
+## Benchmark & Competitive Landscape
+
+There is no widely-adopted open-source framework that does cross-jurisdictional
+regulatory reasoning. The closest tools fall into three buckets, none of which
+solve the same problem:
+
+| Category | Examples | Stars | What they do | What they don't do |
+|----------|----------|------:|--------------|-------------------|
+| **General GraphRAG** | Microsoft GraphRAG, LightRAG | 9k–30k | Community-summary graphs over documents | No regulatory concepts, no cross-jurisdictional mapping, no agents |
+| **Agent frameworks** | LangGraph, CrewAI | 10k–25k | Multi-agent orchestration | No typed regulatory graph, no citation verification, no domain model |
+| **Fairness/privacy libs** | AIF360, Fairlearn, Google DP | 2k–3k | Bias metrics, fairness constraints, DP statistics | Point-solution libraries — complementary, not comparable |
+| **Legal citation tools** | eyecite, CiteTracer | 0–250 | Extract citations from text, verify against Crossref | US case law only, no regulation graph, external API dependency |
+| **Compliance engines** | CDISC CORE, ARKA, OSCAL | 50–200 | Conformance checking against specific standards | Vertical-specific, no cross-jurisdictional reasoning, no LLM agent layer |
+
+### What makes this defensible
+
+Three things compound into a moat:
+
+1. **The graph is the source of truth, not an external API.** Citation verification
+   is a set-membership check — `graph.has_node("article-9")` — with zero latency,
+   zero cost, and zero external dependency. Every other citation verifier calls
+   Crossref, Semantic Scholar, or a database. Ours is deterministic.
+
+2. **Regulations are modeled, not searched.** The typed graph captures obligations,
+   rights, conditions, prohibitions, and cross-references. This makes
+   cross-jurisdictional reasoning possible — you can ask "does CCPA have an
+   equivalent to GDPR article-9?" and get a reasoning chain, not a vector-similarity
+   guess.
+
+3. **Domains are pluggable packages.** `pip install reggraph-hipaa` adds a new
+   regulation's typed graph. Inter-domain edges (equivalent_to, conflicts_with,
+   extends) form automatically from the concept layer. Each new domain enriches
+   every other domain's reasoning chains.
+
+### The LangGraph baseline
+
+The eval harness compares RegGraph against a vanilla LangGraph + ChromaDB
+baseline — same LLM, same vector index, same test cases. LangGraph is what
+every competent team builds on; the difference is purely architectural:
+
+| Capability | LangGraph + ChromaDB | RegGraph |
+|-----------|:--------------------:|:--------:|
+| Multi-agent orchestration | ✓ | ✓ |
+| Semantic vector search | ✓ | ✓ |
+| Typed regulatory concepts | ✗ | ✓ |
+| Multi-hop clause-path traversal | ✗ | ✓ |
+| Deterministic citation verification | ✗ | ✓ |
+| Symbolic regulatory checks | ✗ | ✓ |
+| Cross-jurisdictional reasoning chains | ✗ | ✓ |
+| Pluggable regulatory domains | ✗ | ✓ |
+
+### Benchmark metrics
+
+| Metric | What it captures | Why it matters |
+|--------|-----------------|----------------|
+| **Citation F1** | Precision + recall of article references | Are citations correct and complete? |
+| **Hallucination rate** | Cited articles that don't exist in the regulation | Does the answer fabricate legal references? |
+| **Multi-hop recall** | Connected articles found beyond direct matches | Does reasoning follow cross-references? |
+| **Cross-jurisdictional recall** | Equivalent articles found across regulation graphs | Does reasoning map between jurisdictions? |
+| **Symbolic pass rate** | High-confidence rule checks (special-category, erasure, breach deadlines) | Are hard regulatory requirements met? |
+| **LLM-judge score** | Holistic quality: correctness, completeness, citation quality, clarity | Is the answer practically usable? |
+
+### Running the benchmark
+
+```bash
+# Single-jurisdiction comparison
+uv run python -m agentic_reg.eval --configs reggraph,langgraph --limit 5
+
+# Cross-jurisdictional: GDPR ↔ UK DPA mapping
+uv run python -m agentic_reg.eval --configs reggraph,langgraph \
+    --scenario cross-jurisdictional --limit 4
+
+# Live mode with LLM judge
+uv run python -m agentic_reg.eval --configs reggraph --live --judge \
+    --scenario cross-jurisdictional
+```
 
 ## Contributing
 

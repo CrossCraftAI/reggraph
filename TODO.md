@@ -125,3 +125,56 @@ Without them, **nothing in the Quick Start works**.
 - [ ] **Add a "Work in Progress" note** to the README Quick Start section until Phase 0 is complete. The current instructions do not work.
 - [ ] **Add `[project.entry-points]` for domain plugins** so external packages can ship new regulations via `agentic_reg.domains` entry point group (the config comment already references this, but the wiring isn't built).
 - [ ] **Add `mypy` or `pyright` to dev dependencies and CI** — the code uses Protocols which benefit from static checking.
+
+---
+
+## Phase 3 — Cross-jurisdictional reasoning (P2)
+
+Cross-jurisdictional mapping with reasoning chains is the core differentiator.
+Legal experts are bounded by jurisdiction; startups scale across borders with
+no systematic mapping. This phase builds the primitives that make inter-domain
+reasoning possible.
+
+- [ ] **Inter-domain graph edges** — `equivalent_to`, `conflicts_with`, `extends`,
+  `narrower_than`, `broader_than` relations between nodes in different domain
+  graphs. Enables traversal like "GDPR article-9 → equivalent_to → UK DPA section-10
+  → requires → UK DPA schedule-1."
+- [ ] **Cross-jurisdictional agent specialist** — A jurisdiction-aware specialist
+  that can load two domain graphs side by side, trace equivalence chains, and
+  flag gaps where one regulation imposes obligations another doesn't.
+- [ ] **Delta analysis output** — Structured output showing: (1) equivalent
+  provisions, (2) gaps where jurisdiction A requires something B doesn't,
+  (3) conflicts where A and B impose contradictory obligations, (4) recommended
+  bridging actions.
+- [ ] **Cross-jurisdictional eval harness** — Extend `--scenario cross-jurisdictional`
+  with live LLM agent execution (currently synthetic-only). Load multiple domain
+  graphs, run agents across them, measure cross-jurisdictional recall.
+- [ ] **Domain pack metadata** — Domain markdown files gain a YAML frontmatter
+  block with jurisdiction info (country, regulator, effective date, amendment
+  history) so the engine can reason about temporal precedence and
+  geographic scope.
+
+---
+
+## Phase 4 — Polyglot core (P3)
+
+The long-term ambition is a compiled core (Rust or Zig) with a C FFI, exposed
+via Python bindings and WASM. This follows the eyecite → incitez trajectory:
+start in Python, prove the primitives, then rewrite the hot path in a systems
+language for speed, portability, and zero-dependency embedding.
+
+- [ ] **Extract `reggraph-core`** — Pure library: `GraphLike` Protocol, typed
+  node/edge schemas, citation regex engine, and deterministic verification as
+  a standalone Python package with zero LLM dependency. `pip install reggraph-core`.
+- [ ] **Rust rewrite of graph ops** — `has_node`, `expand`, `_extract_citations`,
+  and edge traversal in Rust with `pyo3` bindings. Target: <1ms for citation
+  verification against a 500-node regulation graph.
+- [ ] **WASM build for browser** — `reggraph-core` compiled to WASM so citation
+  verification runs entirely client-side. No server, no API key, no data leaving
+  the machine. Enable the "paste a regulation, verify citations in browser" demo.
+- [ ] **C FFI header** — Stable C ABI so `reggraph-core` can be embedded in Go,
+  Kotlin, Swift, or any language with C interop. Target: compliance checks in
+  mobile apps, CI pipelines, and edge deployments.
+- [ ] **Language-agnostic test corpus** — Port the eval test cases to a
+  language-agnostic JSON format so every binding (Python, Rust, WASM, C)
+  validates against the same expected outputs.
