@@ -9,14 +9,12 @@ from agentic_reg.eval.eval import (
     _build_summary,
     _extract_citations,
     _format_comparison_table,
-    _run_nograph,
     _run_synthetic_case,
     compute_metrics,
     run,
     save_report,
 )
 from agentic_reg.knowledge.graph import KnowledgeGraph
-
 
 # ── citation extraction ────────────────────────────────────────────────────
 
@@ -106,10 +104,18 @@ def test_compute_metrics_with_symbolic_findings():
     graph.add_node("article-6", label="A6", kind="clause")
 
     symbolic = [
-        {"rule_id": "citation_validity", "passed": True,
-         "message": "All citations resolve.", "citations": ["article-6"]},
-        {"rule_id": "special_category", "passed": False,
-         "message": "Missing article-9.", "citations": ["article-9"]},
+        {
+            "rule_id": "citation_validity",
+            "passed": True,
+            "message": "All citations resolve.",
+            "citations": ["article-6"],
+        },
+        {
+            "rule_id": "special_category",
+            "passed": False,
+            "message": "Missing article-9.",
+            "citations": ["article-9"],
+        },
     ]
     metrics = compute_metrics(
         "Answer: [article-6].",
@@ -256,11 +262,15 @@ def test_run_default_configs():
 def test_build_summary_includes_comparison_when_reggraph_present():
     results = [
         EvalResult(
-            case_id="t1", question="Q?", config="reggraph",
+            case_id="t1",
+            question="Q?",
+            config="reggraph",
             metrics=EvalMetrics(citation_f1=0.95, hallucination_rate=0.0, multi_hop_recall=0.8),
         ),
         EvalResult(
-            case_id="t1", question="Q?", config="langgraph",
+            case_id="t1",
+            question="Q?",
+            config="langgraph",
             metrics=EvalMetrics(citation_f1=0.70, hallucination_rate=0.15, multi_hop_recall=0.4),
         ),
     ]
@@ -276,15 +286,21 @@ def test_build_summary_includes_comparison_when_reggraph_present():
 def test_build_summary_prefers_langgraph_baseline_over_nograph():
     results = [
         EvalResult(
-            case_id="t1", question="Q?", config="reggraph",
+            case_id="t1",
+            question="Q?",
+            config="reggraph",
             metrics=EvalMetrics(citation_f1=1.0, hallucination_rate=0.0, multi_hop_recall=0.9),
         ),
         EvalResult(
-            case_id="t1", question="Q?", config="langgraph",
+            case_id="t1",
+            question="Q?",
+            config="langgraph",
             metrics=EvalMetrics(citation_f1=0.8, hallucination_rate=0.1, multi_hop_recall=0.5),
         ),
         EvalResult(
-            case_id="t1", question="Q?", config="no-graph",
+            case_id="t1",
+            question="Q?",
+            config="no-graph",
             metrics=EvalMetrics(citation_f1=0.5, hallucination_rate=0.3, multi_hop_recall=0.2),
         ),
     ]
@@ -295,8 +311,18 @@ def test_build_summary_prefers_langgraph_baseline_over_nograph():
 
 def test_format_comparison_table():
     summary = {
-        "reggraph": {"cases": 5, "mean_citation_f1": 0.95, "mean_hallucination_rate": 0.02, "mean_multi_hop_recall": 0.80},
-        "langgraph": {"cases": 5, "mean_citation_f1": 0.72, "mean_hallucination_rate": 0.18, "mean_multi_hop_recall": 0.45},
+        "reggraph": {
+            "cases": 5,
+            "mean_citation_f1": 0.95,
+            "mean_hallucination_rate": 0.02,
+            "mean_multi_hop_recall": 0.80,
+        },
+        "langgraph": {
+            "cases": 5,
+            "mean_citation_f1": 0.72,
+            "mean_hallucination_rate": 0.18,
+            "mean_multi_hop_recall": 0.45,
+        },
         "_comparison": {
             "baseline": "langgraph",
             "citation_f1_delta": 0.23,

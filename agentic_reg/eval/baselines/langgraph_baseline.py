@@ -122,9 +122,7 @@ class LangGraphBaseline:
         """Vector search — same ChromaDB index RegGraph uses, but no graph expansion."""
         chunks = self._vector_index.search(state.question, top_k=self._top_k)
         return {
-            "retrieved_chunks": [
-                {"text": c.text, "article_ref": c.article_ref} for c in chunks
-            ],
+            "retrieved_chunks": [{"text": c.text, "article_ref": c.article_ref} for c in chunks],
         }
 
     def _reason(self, state: BaselineState) -> dict[str, Any]:
