@@ -18,6 +18,11 @@ class Chunk:
     title: str
     text: str
 
+    @property
+    def article_ref(self) -> str:
+        """Backward-compatible name for older article-only callers."""
+        return self.id.split("::", 1)[0]
+
 
 _UNIT_HEADING_LINE = re.compile(
     r"^\s*(?:Article|Section|Rule|Regulation|Clause|Paragraph)\s+\d+\b", flags=re.IGNORECASE
