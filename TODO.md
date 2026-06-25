@@ -61,24 +61,24 @@ Without them, **nothing in the Quick Start works**.
   — The package and subpackage need init files so Hatchling can build a working wheel.
 - [x] **Implement `agentic_reg/providers/`** — LLM backend abstraction.
   - `__init__.py` with `get_provider(settings) -> Provider`
-  - `_github.py` — GitHub Models (OpenAI-compatible endpoint, `GITHUB_TOKEN` auth, fallback to `gh auth token`)
-  - `_ollama.py` — Ollama chat/completions
-  - `_anthropic.py` — Claude API (behind the `anthropic` extra)
+  - `github_provider.py` — GitHub Models (OpenAI-compatible endpoint, `GITHUB_TOKEN` auth, fallback to `gh auth token`)
+  - `ollama_provider.py` — Ollama chat/completions
+  - `anthropic_provider.py` — Claude API (behind the `anthropic` extra)
   - Ref: config fields `llm_provider`, `github_model`, `ollama_model`, `anthropic_model`
 - [x] **Implement `agentic_reg/domains/`** — Pluggable regulatory domains.
   - `__init__.py` with `Domain` dataclass, `get_domain(name)`, `register(domain)`, and entry-point discovery
-  - `_gdpr.py` — GDPR articles markdown + chunking config (or ship `data/gdpr.md`)
-  - `_uk_dpa.py` — UK DPA 2018 markdown + chunking config (or ship `data/uk_dpa.md`)
+  - `builtin.py` — built-in GDPR and UK DPA domain registrations
+  - `data/gdpr.md` and `data/uk_dpa_excerpt.md` — bundled domain source excerpts
   - Ref: `.env.example` `AGENTIC_REG_DOMAIN`, README "Plug in Your Own Domain"
 - [x] **Implement `agentic_reg/knowledge/graph.py`** — `KnowledgeGraph` class (NetworkX-backed).
   - `build(domain) -> KnowledgeGraph`
   - `load(path) -> KnowledgeGraph`
   - `save(path)`
-  - `expand(node_ids, hops) -> set[node_ids]`
+  - `expand(node_ids, hops) -> (nodes, edges)`
   - Must satisfy the `GraphLike` and `ProposalGraph` Protocols already defined in `symbolic.py` and `proposals.py`
 - [x] **Implement `agentic_reg/knowledge/vectors.py`** — `VectorIndex` class (ChromaDB-backed).
   - `build(domain, embedding_model)`
-  - `search(query, top_k) -> list[Chunk]`
+  - `search(query, top_k) -> list[VectorHit]`
   - `load(chroma_dir, embedding_model) -> VectorIndex`
 - [x] **Implement `agentic_reg/build.py`** — CLI entry point for `python -m agentic_reg.build`.
   - `--domain <name>` (required)
