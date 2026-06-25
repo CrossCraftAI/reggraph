@@ -1,5 +1,5 @@
-from agentic_reg.agents import RegulatoryTeam, get_orchestrator
 from agentic_reg.agent import RegulatoryAgent
+from agentic_reg.agents import RegulatoryTeam, get_orchestrator
 from agentic_reg.config import Settings
 from agentic_reg.knowledge.graph import KnowledgeGraph
 from agentic_reg.knowledge.vectors import VectorHit

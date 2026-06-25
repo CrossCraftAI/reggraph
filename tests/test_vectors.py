@@ -2,7 +2,6 @@ from agentic_reg.domains import get_domain
 from agentic_reg.ingest import load_chunks
 from agentic_reg.knowledge.vectors import VectorIndex, _chunk_articles, _split_by_article
 
-
 MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 
 

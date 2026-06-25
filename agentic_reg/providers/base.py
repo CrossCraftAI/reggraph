@@ -27,7 +27,9 @@ class LLMProvider(ABC):
         """
         raise NotImplementedError
 
-    def chat(self, messages: list[dict[str, Any]], tools: list[dict[str, Any]] | None = None) -> str:
+    def chat(
+        self, messages: list[dict[str, Any]], tools: list[dict[str, Any]] | None = None
+    ) -> str:
         """Compatibility bridge for the old ReAct prototype.
 
         New code should use ``complete``. Older code on this branch passed
@@ -35,11 +37,14 @@ class LLMProvider(ABC):
         into a single prompt and ignore tool schemas unless a concrete provider
         overrides this method.
         """
-        system = "\n\n".join(
-            str(message.get("content", ""))
-            for message in messages
-            if message.get("role") == "system"
-        ) or None
+        system = (
+            "\n\n".join(
+                str(message.get("content", ""))
+                for message in messages
+                if message.get("role") == "system"
+            )
+            or None
+        )
         prompt_parts = [
             f"{message.get('role', 'user')}: {message.get('content', '')}"
             for message in messages

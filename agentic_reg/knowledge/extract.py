@@ -60,7 +60,9 @@ def extract_cross_references(chunks: list[Chunk]) -> list[tuple[str, str]]:
     seen: set[tuple[str, str]] = set()
     for chunk in chunks:
         targets = {match.lower() for match in _BRACKET_REFERENCE_RE.findall(chunk.text)}
-        targets.update(f"{word.lower()}-{number}" for word, number in _REFERENCE_RE.findall(chunk.text))
+        targets.update(
+            f"{word.lower()}-{number}" for word, number in _REFERENCE_RE.findall(chunk.text)
+        )
         for target in targets:
             edge = (chunk.id, target)
             if target in known_ids and target != chunk.id and edge not in seen:

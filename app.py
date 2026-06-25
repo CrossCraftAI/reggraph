@@ -51,8 +51,7 @@ def graph_dot(nodes: list[dict], edges: list[dict]) -> str:
         parts.append(f'"{node["id"]}" [label="{label}" fillcolor="{color}"];')
     for edge in edges:
         parts.append(
-            f'"{edge["source"]}" -> "{edge["target"]}" '
-            f'[label="{edge["relation"]}" fontsize=8];'
+            f'"{edge["source"]}" -> "{edge["target"]}" [label="{edge["relation"]}" fontsize=8];'
         )
     parts.append("}")
     return "\n".join(parts)
