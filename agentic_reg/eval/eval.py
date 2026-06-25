@@ -18,7 +18,8 @@ Supports two test scenarios:
 Usage::
 
     # Cross-jurisdictional
-    python -m agentic_reg.eval --configs reggraph,langgraph --scenario cross-jurisdictional --limit 4
+    python -m agentic_reg.eval --configs reggraph,langgraph \
+        --scenario cross-jurisdictional --limit 4
 
     # Full comparison: RegGraph vs LangGraph baseline
     python -m agentic_reg.eval --configs reggraph,langgraph --limit 4
@@ -94,12 +95,15 @@ TEST_CASES = [
 CROSS_JURISDICTIONAL_TEST_CASES = [
     {
         "id": "cross-special-category",
-        "question": "Does UK DPA 2018 provide the same protections for special category data as GDPR article-9?",
+        "question": (
+            "Does UK DPA 2018 provide the same protections for special category "
+            "data as GDPR article-9?"
+        ),
         "expected_citations": ["article-9", "section-10"],
         "expected_multi_hop": {"article-6", "section-8"},
         "expected_cross_jurisdictional": {
             ("article-9", "section-10"),  # GDPR special category ↔ UK DPA equivalent
-            ("article-6", "section-8"),   # Lawful basis across jurisdictions
+            ("article-6", "section-8"),  # Lawful basis across jurisdictions
         },
         "domains": ["gdpr", "uk_dpa"],
     },
@@ -116,7 +120,10 @@ CROSS_JURISDICTIONAL_TEST_CASES = [
     },
     {
         "id": "cross-breach",
-        "question": "If a controller is GDPR breach-notification compliant under article-33, does that satisfy UK DPA requirements?",
+        "question": (
+            "If a controller is GDPR breach-notification compliant under article-33, "
+            "does that satisfy UK DPA requirements?"
+        ),
         "expected_citations": ["article-33", "section-67"],
         "expected_multi_hop": {"article-5"},
         "expected_cross_jurisdictional": {
@@ -126,7 +133,10 @@ CROSS_JURISDICTIONAL_TEST_CASES = [
     },
     {
         "id": "cross-consent",
-        "question": "What additional consent conditions does GDPR article-7 impose that UK DPA doesn't explicitly require?",
+        "question": (
+            "What additional consent conditions does GDPR article-7 impose that "
+            "UK DPA doesn't explicitly require?"
+        ),
         "expected_citations": ["article-7", "article-5"],
         "expected_multi_hop": {"article-6"},
         "expected_cross_jurisdictional": {
@@ -294,8 +304,7 @@ def compute_metrics(
     xj_recall = 0.0
     if expected_cross_jurisdictional:
         xj_hits = sum(
-            1 for a, b in expected_cross_jurisdictional
-            if a in cited_set and b in cited_set
+            1 for a, b in expected_cross_jurisdictional if a in cited_set and b in cited_set
         )
         xj_recall = xj_hits / len(expected_cross_jurisdictional)
 
@@ -348,9 +357,7 @@ def _run_reggraph(
 
     # 1. Vector search
     chunks = vector_index.search(question, top_k=vector_top_k)
-    vector_context = "\n\n---\n\n".join(
-        f"[{c.article_ref}] {c.text}" for c in chunks
-    )
+    vector_context = "\n\n---\n\n".join(f"[{c.article_ref}] {c.text}" for c in chunks)
 
     # 2. Graph expansion from matched article nodes
     matched_nodes = {c.article_ref for c in chunks if graph.has_node(c.article_ref)}
@@ -367,8 +374,10 @@ def _run_reggraph(
             label = node_data.get("label", node_id)
             if text:
                 graph_lines.append(f"[{node_id}] {label}\n{text[:500]}")
-    graph_context = "\n\n---\n\n".join(graph_lines) if graph_lines else (
-        "(No additional articles found via graph expansion.)"
+    graph_context = (
+        "\n\n---\n\n".join(graph_lines)
+        if graph_lines
+        else ("(No additional articles found via graph expansion.)")
     )
 
     # 3. LLM reasoning
@@ -406,9 +415,7 @@ def _run_langgraph_baseline(
 
     # 1. Vector search only — no graph expansion
     chunks = vector_index.search(question, top_k=vector_top_k)
-    context = "\n\n---\n\n".join(
-        f"[{c.article_ref}] {c.text}" for c in chunks
-    )
+    context = "\n\n---\n\n".join(f"[{c.article_ref}] {c.text}" for c in chunks)
 
     # 2. LLM reasoning over retrieved chunks only
     prompt = _LANGGRAPH_PROMPT.format(context=context, question=question)
@@ -435,9 +442,7 @@ def _run_nograph(
     t0 = time.perf_counter()
 
     chunks = vector_index.search(question, top_k=vector_top_k)
-    context = "\n\n---\n\n".join(
-        f"[{c.article_ref}] {c.text}" for c in chunks
-    )
+    context = "\n\n---\n\n".join(f"[{c.article_ref}] {c.text}" for c in chunks)
 
     prompt = _NOGRAPH_PROMPT.format(context=context, question=question)
     messages: list[dict[str, Any]] = [{"role": "user", "content": prompt}]
@@ -521,9 +526,7 @@ def run(
         for dom_name in ("uk_dpa", "ccpa"):
             try:
                 dom = get_domain(dom_name)
-                sg = KnowledgeGraph.load(
-                    PROJECT_ROOT / "data" / "store" / dom.name / "graph.json"
-                )
+                sg = KnowledgeGraph.load(PROJECT_ROOT / "data" / "store" / dom.name / "graph.json")
                 secondary_graphs[dom_name] = sg
                 # Merge secondary graph nodes into primary for hallucination
                 # detection and citation verification.
@@ -541,9 +544,7 @@ def run(
         settings = get_settings()
         provider = get_provider(settings)
         try:
-            vector_index = VectorIndex.load(
-                store_dir / "chroma", settings.embedding_model
-            )
+            vector_index = VectorIndex.load(store_dir / "chroma", settings.embedding_model)
         except Exception:
             vector_index = None
 
@@ -578,19 +579,26 @@ def _run_live_case(
         if graph is None:
             raise RuntimeError("Graph must be built before running reggraph config.")
         answer, elapsed_ms, token_count, symbolic_findings = _run_reggraph(
-            question, provider, vector_index, graph,
+            question,
+            provider,
+            vector_index,
+            graph,
             vector_top_k=settings.vector_top_k,
             graph_hops=settings.graph_hops,
         )
     elif config == "langgraph":
         answer, elapsed_ms, token_count = _run_langgraph_baseline(
-            question, provider, vector_index,
+            question,
+            provider,
+            vector_index,
             vector_top_k=settings.vector_top_k,
         )
         symbolic_findings = None
     elif config == "no-graph":
         answer, elapsed_ms, token_count = _run_nograph(
-            question, provider, vector_index,
+            question,
+            provider,
+            vector_index,
             vector_top_k=settings.vector_top_k,
         )
         symbolic_findings = None
@@ -606,9 +614,7 @@ def _run_live_case(
         elapsed_ms=elapsed_ms,
         token_count=token_count,
         symbolic_findings=symbolic_findings,
-        expected_cross_jurisdictional=(
-            {tuple(p) for p in expected_xj} if expected_xj else None
-        ),
+        expected_cross_jurisdictional=({tuple(p) for p in expected_xj} if expected_xj else None),
     )
 
     if judge:
@@ -660,8 +666,12 @@ def _run_synthetic_case(
         citations = expected + sorted(multi_hop) + xj_citations
         hallucinated_extra: list[str] = []
         symbolic_findings: list[dict[str, object]] | None = [
-            {"rule_id": "citation_validity", "passed": True,
-             "message": "All citations resolve to graph nodes.", "citations": citations},
+            {
+                "rule_id": "citation_validity",
+                "passed": True,
+                "message": "All citations resolve to graph nodes.",
+                "citations": citations,
+            },
         ]
     elif config == "langgraph":
         # Vanilla LangGraph: finds most direct citations but misses multi-hop,
@@ -680,9 +690,7 @@ def _run_synthetic_case(
         raise ValueError(f"Unknown config: {config!r}")  # pragma: no cover
 
     all_citations = citations + hallucinated_extra
-    answer = (
-        f"Answer: {' '.join('[' + c + ']' for c in all_citations)}."
-    )
+    answer = f"Answer: {' '.join('[' + c + ']' for c in all_citations)}."
 
     metrics = compute_metrics(
         answer,
@@ -692,9 +700,7 @@ def _run_synthetic_case(
         elapsed_ms=0.0,
         token_count=0,
         symbolic_findings=symbolic_findings,
-        expected_cross_jurisdictional=(
-            {tuple(p) for p in expected_xj} if expected_xj else None
-        ),
+        expected_cross_jurisdictional=({tuple(p) for p in expected_xj} if expected_xj else None),
     )
 
     return EvalResult(
@@ -730,7 +736,9 @@ def _build_summary(results: list[EvalResult]) -> dict[str, Any]:
             entry["mean_elapsed_ms"] = sum(m.elapsed_ms for m in metrics_list) / n
             entry["mean_token_count"] = sum(m.token_count for m in metrics_list) / n
         # Symbolic pass rate (RegGraph only)
-        symbolic_rates = [m.symbolic_pass_rate for m in metrics_list if m.symbolic_pass_rate is not None]
+        symbolic_rates = [
+            m.symbolic_pass_rate for m in metrics_list if m.symbolic_pass_rate is not None
+        ]
         if symbolic_rates:
             entry["mean_symbolic_pass_rate"] = sum(symbolic_rates) / len(symbolic_rates)
         # LLM judge
@@ -748,8 +756,10 @@ def _build_summary(results: list[EvalResult]) -> dict[str, Any]:
             summary["_comparison"] = {
                 "baseline": baseline,
                 "citation_f1_delta": reg["mean_citation_f1"] - base["mean_citation_f1"],
-                "hallucination_rate_delta": reg["mean_hallucination_rate"] - base["mean_hallucination_rate"],
-                "multi_hop_recall_delta": reg["mean_multi_hop_recall"] - base["mean_multi_hop_recall"],
+                "hallucination_rate_delta": reg["mean_hallucination_rate"]
+                - base["mean_hallucination_rate"],
+                "multi_hop_recall_delta": reg["mean_multi_hop_recall"]
+                - base["mean_multi_hop_recall"],
             }
 
     return summary
@@ -787,7 +797,7 @@ def _format_comparison_table(summary: dict[str, Any]) -> str:
     lines.append("")
     lines.append(f"  RegGraph vs {baseline} baseline:")
     lines.append(f"  {'Metric':<30} {'Delta':>8}  {'Interpretation'}")
-    lines.append(f"  {'-'*30} {'-'*8}  {'-'*30}")
+    lines.append(f"  {'-' * 30} {'-' * 8}  {'-' * 30}")
 
     deltas = [
         ("citation_f1_delta", "Citation F1", "▲ better"),
@@ -805,15 +815,12 @@ def _format_comparison_table(summary: dict[str, Any]) -> str:
 
 
 def main(argv: list[str] | None = None) -> None:
-    parser = argparse.ArgumentParser(
-        description="Evaluate regulatory QA across configurations."
-    )
+    parser = argparse.ArgumentParser(description="Evaluate regulatory QA across configurations.")
     parser.add_argument(
         "--configs",
         default="reggraph,langgraph",
         help=(
-            "Comma-separated configs: reggraph, langgraph, no-graph "
-            "(default: reggraph,langgraph)."
+            "Comma-separated configs: reggraph, langgraph, no-graph (default: reggraph,langgraph)."
         ),
     )
     parser.add_argument(
