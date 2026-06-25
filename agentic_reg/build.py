@@ -9,6 +9,7 @@ graph are built deterministically; LLM concept enrichment is best-effort.
 """
 
 import argparse
+import shutil
 
 from .config import get_settings
 from .domains import get_domain
@@ -32,6 +33,8 @@ def build(domain_name: str | None = None, *, enrich: bool = True) -> None:
     print(f"  {len(chunks)} chunk(s): {', '.join(c.id for c in chunks)}")
 
     print("Building vector index (downloads the embedding model on first run)...")
+    if domain.chroma_dir.exists():
+        shutil.rmtree(domain.chroma_dir)
     vector_index = VectorIndex(domain.chroma_dir, settings.embedding_model)
     vector_index.add(chunks)
     print(f"  vector store now holds {vector_index.count()} chunk(s).")

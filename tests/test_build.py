@@ -59,10 +59,15 @@ def test_build_no_enrich_writes_store_without_requesting_provider(monkeypatch, t
 
     monkeypatch.setattr(builtins, "__import__", _guard_provider_import)
 
+    domain.chroma_dir.mkdir(parents=True)
+    stale = domain.chroma_dir / "stale.txt"
+    stale.write_text("old", encoding="utf-8")
+
     build_module.build("test_reg", enrich=False)
 
     assert domain.graph_path.exists()
     assert domain.chroma_dir.exists()
+    assert not stale.exists()
     graph = KnowledgeGraph.load(domain.graph_path)
     assert graph.has_node("section-1")
     assert graph.has_node("section-2")
