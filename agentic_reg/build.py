@@ -1,68 +1,93 @@
-"""Build a domain's knowledge store — vector index and typed graph.
+"""Build the persisted knowledge store (vectors + graph) for a domain.
 
-Usage::
+    uv run python -m agentic_reg.build               # default domain (settings)
+    uv run python -m agentic_reg.build --domain uk_dpa
+    uv run python -m agentic_reg.build --domain gdpr --no-enrich
 
-    python -m agentic_reg.build --domain gdpr
-    python -m agentic_reg.build --domain gdpr --no-enrich
+Safe to run without an LLM running: the vector index and the cross-reference
+graph are built deterministically; LLM concept enrichment is best-effort.
 """
 
 import argparse
 
-from agentic_reg.config import PROJECT_ROOT, get_settings
-from agentic_reg.domains import get_domain
-from agentic_reg.knowledge.graph import KnowledgeGraph
-from agentic_reg.knowledge.vectors import VectorIndex
+from .config import get_settings
+from .domains import get_domain
+from .ingest import load_chunks
+from .knowledge.extract import (
+    CONCEPT_EDGE,
+    extract_cross_references,
+    extract_graph_elements,
+)
+from .knowledge.graph import KnowledgeGraph
+from .knowledge.vectors import VectorIndex
+
+
+def build(domain_name: str | None = None, *, enrich: bool = True) -> None:
+    settings = get_settings()
+    domain = get_domain(domain_name or settings.domain)
+
+    print(f"Domain: {domain.name} — {domain.title}")
+    print(f"Loading document: {domain.source_path}")
+    chunks = load_chunks(domain.source_path)
+    print(f"  {len(chunks)} chunk(s): {', '.join(c.id for c in chunks)}")
+
+    print("Building vector index (downloads the embedding model on first run)...")
+    vector_index = VectorIndex(domain.chroma_dir, settings.embedding_model)
+    vector_index.add(chunks)
+    print(f"  vector store now holds {vector_index.count()} chunk(s).")
+
+    print("Building knowledge graph...")
+    graph = KnowledgeGraph()
+    for chunk in chunks:
+        graph.add_node(chunk.id, label=chunk.title, kind="clause")
+    known_ids = {c.id for c in chunks}
+    cross_refs = extract_cross_references(chunks)
+    for source, target in cross_refs:
+        graph.add_edge(source, target, "references")
+    print(f"  {len(cross_refs)} cross-reference edge(s) from clause text.")
+
+    if enrich:
+        # Best-effort typed LLM enrichment; never blocks the build.
+        try:
+            from .providers import get_provider
+
+            provider = get_provider(settings)
+            print(f"Enriching via '{provider.name}' (unit='{domain.unit_label}')...")
+            concepts = relations = 0
+            for chunk in chunks:
+                extraction = extract_graph_elements(
+                    chunk, provider, known_ids, unit_label=domain.unit_label
+                )
+                for concept in extraction.concepts:
+                    graph.add_node(concept.id, label=concept.label, kind=concept.kind)
+                    graph.add_edge(
+                        chunk.id, concept.id, CONCEPT_EDGE.get(concept.kind, "introduces")
+                    )
+                    concepts += 1
+                for relation in extraction.relations:
+                    graph.add_edge(relation.source_id, relation.target_id, relation.relation)
+                    relations += 1
+            print(f"  added {concepts} concept node(s) and {relations} typed relation(s).")
+        except Exception as exc:
+            print(f"  (skipped LLM enrichment: {type(exc).__name__}: {exc})")
+    else:
+        print("Skipping LLM enrichment (--no-enrich); deterministic graph only.")
+
+    graph.save(domain.graph_path)
+    print(f"  graph saved: {graph.num_nodes} node(s), {graph.num_edges} edge(s).")
+    print(f"\nDone. Knowledge store written to {domain.store_dir}")
 
 
 def main(argv: list[str] | None = None) -> None:
-    parser = argparse.ArgumentParser(description="Build a regulatory domain's knowledge store.")
-    parser.add_argument(
-        "--domain",
-        required=True,
-        help="Domain name (e.g. gdpr).",
-    )
+    parser = argparse.ArgumentParser(prog="agentic_reg.build")
+    parser.add_argument("--domain", default=None, help="domain name (default from settings)")
     parser.add_argument(
         "--no-enrich",
         action="store_true",
-        help="Skip LLM concept typing — build a deterministic graph only.",
+        help="skip best-effort LLM concept/relation enrichment",
     )
     args = parser.parse_args(argv)
-
-    settings = get_settings()
-    domain = get_domain(args.domain)
-    store_dir = PROJECT_ROOT / "data" / "store" / domain.name
-    store_dir.mkdir(parents=True, exist_ok=True)
-
-    # 1. Vector index
-    print(f"Building vector index for {domain.name}...")
-    vector_index = VectorIndex.build(domain, settings.embedding_model)
-    print(f"  ✓ {vector_index.chunk_count} chunks indexed")
-
-    # 2. Knowledge graph
-    print(f"Building knowledge graph for {domain.name}...")
-    graph = KnowledgeGraph.build(domain)
-    graph_path = store_dir / "graph.json"
-    graph.save(graph_path)
-    print(f"  ✓ {graph.node_count} nodes, {graph.edge_count} edges → {graph_path}")
-
-    # 3. LLM enrichment (unless skipped)
-    if args.no_enrich:
-        print("Skipping LLM enrichment (--no-enrich).")
-    else:
-        _enrich_graph(domain, graph, settings)
-        graph.save(graph_path)
-        print(f"  ✓ enriched graph saved → {graph_path}")
-
-    print(f"Done. Store written to {store_dir}")
-
-
-def _enrich_graph(domain, graph, settings) -> None:
-    """Extract typed concepts from articles and add them to the graph.
-
-    Not yet implemented — requires the provider layer and agent loop.
-    For now this is a no-op stub.
-    """
-    print("  (LLM enrichment not yet implemented — skipping)")
+    build(args.domain, enrich=not args.no_enrich)
 
 
 if __name__ == "__main__":
