@@ -23,6 +23,7 @@ _CITATION_RE = re.compile(r"\[([a-z][a-z-]*-\d+)\]", flags=re.IGNORECASE)
 class KnowledgeGraph:
     def __init__(self, graph: nx.DiGraph | None = None) -> None:
         self.g: nx.DiGraph = graph if graph is not None else nx.DiGraph()
+        self._graph = self.g  # compatibility for the older eval prototype
 
     # --- construction ---
     def add_node(self, node_id: str, *, label: str, kind: str, **attrs: object) -> None:
@@ -140,6 +141,19 @@ class KnowledgeGraph:
     @classmethod
     def load(cls, path: str | Path) -> "KnowledgeGraph":
         data = json.loads(Path(path).read_text(encoding="utf-8"))
+        if isinstance(data.get("nodes"), dict):
+            graph = cls()
+            for node_id, attrs in data.get("nodes", {}).items():
+                graph.add_node(
+                    node_id,
+                    label=attrs.get("label", node_id),
+                    kind=attrs.get("kind", "clause"),
+                    text=attrs.get("text", ""),
+                    source_article=attrs.get("source_article", ""),
+                )
+            for edge in data.get("edges", []):
+                graph.add_edge(edge["source"], edge["target"], edge.get("relation", "references"))
+            return graph
         graph = nx.node_link_graph(data, directed=True, multigraph=False, edges="edges")
         return cls(graph)
 

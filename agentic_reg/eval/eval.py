@@ -361,7 +361,11 @@ def _run_reggraph(
 
     # 2. Graph expansion from matched article nodes
     matched_nodes = {c.article_ref for c in chunks if graph.has_node(c.article_ref)}
-    expanded = graph.expand(matched_nodes, hops=graph_hops) if matched_nodes else set()
+    if matched_nodes:
+        expanded_nodes, _ = graph.expand(matched_nodes, hops=graph_hops)
+        expanded = {node["id"] for node in expanded_nodes}
+    else:
+        expanded = set()
     graph_articles = expanded - matched_nodes
 
     # Build graph context: fetch text for expanded nodes
@@ -534,7 +538,7 @@ def run(
                     for node_id in sg.nodes():
                         if not graph.has_node(node_id):
                             graph.add_node(node_id, label=node_id, kind="clause")
-            except (FileNotFoundError, KeyError):
+            except (FileNotFoundError, KeyError, ValueError):
                 pass
 
     # Lazy-init provider and vector index only when running live.

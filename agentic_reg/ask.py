@@ -148,7 +148,8 @@ def _tool_search(query: str, vector_index: VectorIndex) -> str:
 
 
 def _tool_expand(node_ids: list[str], graph: KnowledgeGraph, hops: int = 1) -> str:
-    reached = graph.expand(set(node_ids), hops=hops)
+    nodes, _ = graph.expand(set(node_ids), hops=hops)
+    reached = {node["id"] for node in nodes}
     if not reached:
         return "No connected articles found."
     return "Connected articles: " + ", ".join(sorted(reached))
