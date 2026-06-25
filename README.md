@@ -11,12 +11,11 @@
 
 ## Status
 
-> **Work in progress.** The current repository contains the knowledge-store
-> foundation: configuration, a GDPR domain excerpt, vector indexing, a NetworkX
-> graph, deterministic citation/symbolic checks, graph-update proposals, a thin
-> ask CLI, and an evaluation harness. The Streamlit UI, full multi-agent team,
-> UK DPA domain package, and cross-jurisdictional reasoning are planned follow-up
-> work tracked in [TODO.md](TODO.md).
+Phase 0 is implemented locally: RegGraph can build GDPR and UK DPA knowledge
+stores, retrieve over graph + vector evidence, answer through a traced single
+agent or a basic specialist team, and run in Streamlit. Richer hierarchy,
+verification/revision, graph-curator proposals, deployment polish, and
+cross-jurisdictional reasoning remain follow-up work tracked in [TODO.md](TODO.md).
 
 RegGraph experiments with regulatory question-answering where citations are
 checked against a local graph rather than trusted as free-form model output.
@@ -25,10 +24,13 @@ deterministic checks flag hallucinated citation IDs such as `[article-99]`.
 
 ## What Works Today
 
-- Build a deterministic GDPR knowledge store from the bundled excerpt.
+- Build deterministic GDPR and UK DPA knowledge stores from bundled excerpts.
 - Store semantic chunks in Chroma with local sentence-transformer embeddings.
-- Build and persist a NetworkX clause graph.
-- Run a thin ask CLI over the built store with an LLM provider.
+- Build and persist NetworkX clause graphs with cross-reference edges.
+- Run a traced single agent or basic specialist team over graph-aware retrieval.
+- Use the Streamlit UI to ask questions, inspect answers, view traces, and see
+  the clause graph.
+- Run the thin ask CLI over the built store with an LLM provider.
 - Run synthetic and live evaluation configs for RegGraph vs a LangGraph-style
   baseline.
 - Validate graph-update proposals before they are written or applied.
@@ -40,15 +42,17 @@ git clone https://github.com/CrossCraftAI/reggraph.git
 cd reggraph
 uv sync
 uv run python -m agentic_reg.build --domain gdpr --no-enrich
+uv run python -m agentic_reg.build --domain uk_dpa --no-enrich
 ```
 
 `--no-enrich` skips best-effort LLM concept extraction and builds only the
 deterministic graph/vector store.
 
-To ask a live question, configure an LLM provider first:
+To ask a live question in the app or CLI, configure an LLM provider first:
 
 ```bash
 gh auth login
+uv run streamlit run app.py
 uv run python -m agentic_reg.ask "What lawful bases allow processing of personal data?"
 ```
 
@@ -66,8 +70,9 @@ and from `.env`. Copy `.env.example` to start.
 | Setting | Values |
 | --- | --- |
 | `AGENTIC_REG_LLM_PROVIDER` | `github`, `ollama`, `anthropic` |
-| `AGENTIC_REG_DOMAIN` | `gdpr` |
+| `AGENTIC_REG_DOMAIN` | `gdpr`, `uk_dpa` |
 | `AGENTIC_REG_USE_GRAPH` | `true`, `false` |
+| `AGENTIC_REG_AGENT_MODE` | `team`, `single` |
 
 Settings construction validates enum values, numeric bounds, non-empty required
 strings, and provider URL shape. Credentials and domain existence are checked
@@ -87,10 +92,9 @@ Without `--live`, eval uses synthetic answers for quick metric validation. With
 
 ## Current Roadmap
 
-- Land the fuller domain/provider package layout.
-- Add the bounded single/team orchestrator interface.
-- Add Streamlit UI and deployment bootstrap.
-- Add UK DPA as a second built-in domain.
+- Add hierarchical team orchestration, graph-curator proposals, verification,
+  and bounded self-correction.
+- Add hosted demo deployment bootstrap.
 - Make symbolic rules domain-pluggable.
 - Add real cross-jurisdictional reasoning and evaluation.
 
