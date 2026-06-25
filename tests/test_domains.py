@@ -41,13 +41,13 @@ def test_register_and_get_domain():
 def test_get_domain_raises_for_unknown():
     try:
         get_domain("nonexistent")
-        raise AssertionError("Expected KeyError")
-    except KeyError:
+        raise AssertionError("Expected ValueError")
+    except ValueError:
         pass
 
 
 def test_list_domains_includes_gdpr():
-    names = list_domains()
+    names = [domain.name for domain in list_domains()]
     assert "gdpr" in names
 
 
