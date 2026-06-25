@@ -1,5 +1,8 @@
 from unittest.mock import patch
 
+import pytest
+from pydantic import ValidationError
+
 from agentic_reg.config import Settings
 from agentic_reg.providers import OpenAICompatProvider, get_provider
 
@@ -23,12 +26,8 @@ def test_get_provider_returns_ollama_provider():
 
 
 def test_get_provider_raises_on_unknown_provider():
-    settings = Settings(llm_provider="unknown")
-    try:
-        get_provider(settings)
-        raise AssertionError("Expected ValueError")
-    except ValueError as exc:
-        assert "unknown" in str(exc)
+    with pytest.raises(ValidationError):
+        Settings(llm_provider="unknown")
 
 
 def test_get_provider_raises_when_github_token_missing():

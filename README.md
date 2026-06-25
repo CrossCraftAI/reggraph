@@ -69,6 +69,10 @@ and from `.env`. Copy `.env.example` to start.
 | `AGENTIC_REG_DOMAIN` | `gdpr` |
 | `AGENTIC_REG_USE_GRAPH` | `true`, `false` |
 
+Settings construction validates enum values, numeric bounds, non-empty required
+strings, and provider URL shape. Credentials and domain existence are checked
+later by the provider and domain registry.
+
 ## Evaluation
 
 The eval harness compares configs on deterministic metrics:
