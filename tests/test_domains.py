@@ -49,6 +49,7 @@ def test_get_domain_raises_for_unknown():
 def test_list_domains_includes_gdpr():
     names = [domain.name for domain in list_domains()]
     assert "gdpr" in names
+    assert "uk_dpa" in names
 
 
 def test_gdpr_domain_exists_and_points_to_source():
@@ -57,3 +58,13 @@ def test_gdpr_domain_exists_and_points_to_source():
     assert domain.unit_label == "article"
     assert domain.source_path.exists()
     assert domain.source_path.suffix == ".md"
+
+
+def test_uk_dpa_domain_uses_section_units_and_isolated_store():
+    gdpr = get_domain("gdpr")
+    uk_dpa = get_domain("uk_dpa")
+
+    assert uk_dpa.unit_label == "section"
+    assert uk_dpa.source_path.exists()
+    assert gdpr.chroma_dir != uk_dpa.chroma_dir
+    assert gdpr.graph_path != uk_dpa.graph_path

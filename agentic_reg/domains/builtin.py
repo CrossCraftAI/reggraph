@@ -12,4 +12,13 @@ GDPR = Domain(
     unit_label="article",
 )
 
+UK_DPA = Domain(
+    name="uk_dpa",
+    title="UK Data Protection Act 2018 (excerpt)",
+    description="Selected sections of the UK Data Protection Act 2018.",
+    source_path=PROJECT_ROOT / "data" / "uk_dpa_excerpt.md",
+    unit_label="section",
+)
+
 register(GDPR)
+register(UK_DPA)
