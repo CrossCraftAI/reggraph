@@ -10,7 +10,7 @@ class _FakeProvider(LLMProvider):
     name = "fake"
 
     def complete(self, prompt: str, *, system: str | None = None, temperature: float = 0.0) -> str:
-        if "Specialist role" in prompt:
+        if "Sub-question:" in prompt:
             return "Article 6 supplies lawful bases [article-6]."
         return "Processing needs a lawful basis [article-6]."
 
