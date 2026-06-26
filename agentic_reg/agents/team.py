@@ -7,11 +7,20 @@ from langgraph.graph import END, START, StateGraph
 from .._internal import parse_json_object
 from ..config import Settings
 from ..knowledge.graph import KnowledgeGraph
+from ..knowledge.proposals import (
+    GraphUpdateProposal,
+    apply_proposal,
+    proposal_from_dict,
+    proposal_store_path,
+    validate_proposal,
+    write_proposals,
+)
 from ..knowledge.vectors import VectorIndex
 from ..providers.base import LLMProvider
 from ..trace import ReasoningTrace
 from .specialists import DEFAULT_ROLE, SPECIALISTS, display_name, run_specialist
 from .state import AgentTask, Finding, SubQuestion, TeamState
+from .verifier import verify
 
 SUPERVISOR_ROLE = "supervisor"
 ALLOWED_ROLES = {SUPERVISOR_ROLE, *SPECIALISTS.keys()}
@@ -43,6 +52,43 @@ Specialist findings:
 Write the answer to the question. Ground every claim in the findings and cite
 clause ids in [brackets]. Be concise."""
 
+_GRAPH_UPDATE_SYSTEM = (
+    "You propose safe regulatory knowledge-graph updates. Respond with JSON only."
+)
+
+_GRAPH_UPDATE_PROMPT = """Question: {question}
+
+Current findings:
+{findings}
+
+Propose up to 3 graph updates supported by the findings. Return ONLY JSON:
+{{
+  "proposals": [
+    {{"action": "edge", "source_id": "<existing-id>", "target_id": "<existing-id>",
+      "relation": "requires|depends_on|exception_to|applies_to|implies|temporal_constraint",
+      "evidence": "<short supporting quote or paraphrase>", "citations": ["<id>", "..."]}},
+    {{"action": "node", "node_id": "<new-id>", "label": "<label>",
+      "kind": "<allowed node kind>",
+      "evidence": "<short supporting quote or paraphrase>", "citations": ["<id>", "..."]}}
+  ]
+}}
+
+Return an empty proposals list if nothing is clearly missing."""
+
+_REVISE_PROMPT = """Question: {question}
+
+Your draft answer:
+{draft}
+
+A verifier found these problems:
+{issues}
+
+Revise the answer to correct unsupported claims, invalid citations, failed
+symbolic checks, and contradictions. Keep valid citations in [brackets].
+
+Specialist findings:
+{findings}"""
+
 
 def _findings_block(findings: list[Finding]) -> str:
     return "\n".join(f"- ({display_name(f.role)}) {f.text}" for f in findings) or "(none)"
@@ -69,12 +115,20 @@ class RegulatoryTeam:
         builder.add_node("plan", self._plan)
         builder.add_node("dispatch", self._dispatch)
         builder.add_node("synthesize", self._synthesize)
+        builder.add_node("graph_updates", self._graph_updates)
+        builder.add_node("verify", self._verify)
+        builder.add_node("revise", self._revise)
         builder.add_node("finalize", self._finalize)
 
         builder.add_edge(START, "plan")
         builder.add_edge("plan", "dispatch")
         builder.add_edge("dispatch", "synthesize")
-        builder.add_edge("synthesize", "finalize")
+        builder.add_edge("synthesize", "graph_updates")
+        builder.add_edge("graph_updates", "verify")
+        builder.add_conditional_edges(
+            "verify", self._route, {"revise": "revise", "finalize": "finalize"}
+        )
+        builder.add_edge("revise", "verify")
         builder.add_edge("finalize", END)
         return builder.compile()
 
@@ -257,6 +311,95 @@ class RegulatoryTeam:
         )
         return {"draft": draft}
 
+    def _graph_updates(self, state: TeamState) -> dict:
+        mode = self.settings.graph_update_mode.lower()
+        proposals: list[GraphUpdateProposal] = []
+
+        if mode != "off":
+            try:
+                raw = self.provider.complete(
+                    _GRAPH_UPDATE_PROMPT.format(
+                        question=state["question"],
+                        findings=_findings_block(state["findings"]),
+                    ),
+                    system=_GRAPH_UPDATE_SYSTEM,
+                )
+                data = parse_json_object(raw)
+            except Exception:
+                data = {}
+
+            for item in data.get("proposals", []) or []:
+                if not isinstance(item, dict):
+                    continue
+                proposal = proposal_from_dict(item)
+                if proposal is None:
+                    continue
+                if mode == "apply":
+                    apply_proposal(proposal, self.graph)
+                else:
+                    validate_proposal(proposal, self.graph)
+                proposals.append(proposal)
+
+            if proposals:
+                write_proposals(proposal_store_path(self.settings), proposals)
+
+        state["trace"].add_step(
+            "graph_updates",
+            f"Graph update mode '{mode}' reviewed {len(proposals)} proposal(s).",
+            mode=mode,
+            proposals=[proposal.to_dict() for proposal in proposals],
+        )
+        return {"graph_proposals": [proposal.to_dict() for proposal in proposals]}
+
+    def _verify(self, state: TeamState) -> dict:
+        verdict = verify(
+            state["draft"],
+            state["findings"],
+            self.graph,
+            self.provider,
+            question=state["question"],
+            symbolic_checks=self.settings.symbolic_checks,
+        )
+        status = "passed" if verdict.ok else "found issues"
+        state["trace"].add_step(
+            "verify",
+            f"Verification {status}.",
+            ok=verdict.ok,
+            invalid_citations=verdict.invalid_citations,
+            unsupported_claims=verdict.unsupported_claims,
+            contradictions=verdict.contradictions,
+            symbolic_findings=verdict.symbolic_findings,
+            llm_note=verdict.llm_note,
+        )
+        return {"verdict": verdict}
+
+    def _route(self, state: TeamState) -> str:
+        verdict = state["verdict"]
+        assert verdict is not None
+        if verdict.ok or state["iteration"] >= self.settings.max_revisions:
+            return "finalize"
+        return "revise"
+
+    def _revise(self, state: TeamState) -> dict:
+        verdict = state["verdict"]
+        assert verdict is not None
+        revised = self.provider.complete(
+            _REVISE_PROMPT.format(
+                question=state["question"],
+                draft=state["draft"],
+                issues="\n".join(f"- {issue}" for issue in verdict.issues()),
+                findings=_findings_block(state["findings"]),
+            ),
+            system=_SYNTH_SYSTEM,
+        )
+        state["trace"].add_step(
+            "revise",
+            "Revised the draft after verification.",
+            fixed=verdict.issues(),
+            revised=revised,
+        )
+        return {"draft": revised, "iteration": state["iteration"] + 1}
+
     def _finalize(self, state: TeamState) -> dict:
         state["trace"].answer = state["draft"]
         return {}
@@ -269,7 +412,10 @@ class RegulatoryTeam:
                 "plan": [],
                 "tasks": [],
                 "findings": [],
+                "graph_proposals": [],
                 "draft": "",
+                "verdict": None,
+                "iteration": 0,
                 "trace": trace,
             }
         )

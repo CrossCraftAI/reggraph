@@ -29,6 +29,12 @@ class _ScriptedProvider(LLMProvider):
     name = "scripted"
 
     def complete(self, prompt, *, system=None, temperature=0.0):
+        if "A verifier found these problems" in prompt:
+            return "Revised: processing on consent is lawful [article-6]."
+        if "Check this draft answer" in prompt:
+            return '{"unsupported_claims": [], "contradictions": []}'
+        if "Propose up to 3 graph updates" in prompt:
+            return '{"proposals": []}'
         if "Break this into" in prompt:
             return (
                 '{"sub_questions": [{"question": "q1", "specialist": "clause_analyst"}, '
@@ -36,7 +42,7 @@ class _ScriptedProvider(LLMProvider):
             )
         if "Sub-question:" in prompt:
             return "Per [article-6], consent is a lawful basis."
-        return "Lawful per [article-6]."
+        return "Lawful per [article-6] and [article-99]."
 
 
 def test_get_orchestrator_selects_single_and_team_modes():
@@ -61,7 +67,7 @@ def test_get_orchestrator_selects_single_and_team_modes():
     assert team.graph is team_graph
 
 
-def test_team_runs_hierarchical_pipeline():
+def test_team_runs_full_pipeline_with_one_self_correction():
     team = RegulatoryTeam(_ScriptedProvider(), _FakeIndex(), _graph(), _settings())
     trace = team.answer("Can consent make processing lawful?")
 
@@ -71,9 +77,35 @@ def test_team_runs_hierarchical_pipeline():
         "specialist:cross_reference",
         "task_tree",
         "synthesize",
+        "graph_updates",
+        "verify",
+        "revise",
+        "verify",
     ]
-    assert trace.answer == "Lawful per [article-6]."
+    assert trace.answer == "Revised: processing on consent is lawful [article-6]."
     json.loads(trace.to_json())
+
+
+def test_team_finalizes_without_revision_when_clean():
+    class _CleanProvider(LLMProvider):
+        name = "clean"
+
+        def complete(self, prompt, *, system=None, temperature=0.0):
+            if "Check this draft answer" in prompt:
+                return '{"unsupported_claims": [], "contradictions": []}'
+            if "Propose up to 3 graph updates" in prompt:
+                return '{"proposals": []}'
+            if "Break this into" in prompt:
+                return '{"sub_questions": [{"question": "q", "specialist": "clause_analyst"}]}'
+            if "Sub-question:" in prompt:
+                return "Per [article-6], yes."
+            return "Processing on consent is lawful [article-6]."
+
+    team = RegulatoryTeam(_CleanProvider(), _FakeIndex(), _graph(), _settings())
+    trace = team.answer("Can consent make processing lawful?")
+
+    assert "revise" not in [step.name for step in trace.steps]
+    assert trace.answer == "Processing on consent is lawful [article-6]."
 
 
 def test_team_can_spawn_bounded_recursive_tasks():
@@ -142,3 +174,65 @@ def test_task_cap_forces_supervisor_to_leaf_work():
     assert len(non_root) == 1
     assert non_root[0]["role"] == "clause_analyst"
     assert non_root[0]["status"] == "answered"
+
+
+def test_graph_update_mode_off_skips_proposals(tmp_path):
+    class _NoProposalProvider(LLMProvider):
+        name = "no-proposal"
+
+        def complete(self, prompt, *, system=None, temperature=0.0):
+            assert "Propose up to 3 graph updates" not in prompt
+            if "Check this draft answer" in prompt:
+                return '{"unsupported_claims": [], "contradictions": []}'
+            if "Break this into" in prompt:
+                return '{"sub_questions": [{"question": "q", "specialist": "clause_analyst"}]}'
+            if "Sub-question:" in prompt:
+                return "Supported [article-6]."
+            return "Final answer [article-6]."
+
+    settings = Settings(
+        _env_file=None,
+        graph_update_mode="off",
+        graph_proposals_path=str(tmp_path / "proposals.jsonl"),
+    )
+    team = RegulatoryTeam(_NoProposalProvider(), _FakeIndex(), _graph(), settings)
+    trace = team.answer("Skip proposals")
+    graph_updates = next(step for step in trace.steps if step.name == "graph_updates")
+
+    assert graph_updates.data["proposals"] == []
+    assert not (tmp_path / "proposals.jsonl").exists()
+
+
+def test_graph_update_mode_apply_updates_graph(tmp_path):
+    class _ApplyProvider(LLMProvider):
+        name = "apply"
+
+        def complete(self, prompt, *, system=None, temperature=0.0):
+            if "Check this draft answer" in prompt:
+                return '{"unsupported_claims": [], "contradictions": []}'
+            if "Propose up to 3 graph updates" in prompt:
+                return (
+                    '{"proposals": [{"action": "edge", "source_id": "article-6", '
+                    '"target_id": "article-7", "relation": "depends_on", '
+                    '"evidence": "Article 6 depends on Article 7.", '
+                    '"citations": ["article-6", "article-7"]}]}'
+                )
+            if "Break this into" in prompt:
+                return '{"sub_questions": [{"question": "q", "specialist": "clause_analyst"}]}'
+            if "Sub-question:" in prompt:
+                return "Supported [article-6] [article-7]."
+            return "Final answer [article-6] [article-7]."
+
+    graph = _graph()
+    settings = Settings(
+        _env_file=None,
+        graph_update_mode="apply",
+        graph_proposals_path=str(tmp_path / "proposals.jsonl"),
+    )
+    team = RegulatoryTeam(_ApplyProvider(), _FakeIndex(), graph, settings)
+    trace = team.answer("Apply proposal")
+    graph_updates = next(step for step in trace.steps if step.name == "graph_updates")
+
+    assert graph.has_edge("article-6", "article-7", "depends_on")
+    assert graph_updates.data["proposals"][0]["status"] == "applied"
+    assert (tmp_path / "proposals.jsonl").exists()

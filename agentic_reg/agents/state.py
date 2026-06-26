@@ -49,10 +49,35 @@ class Finding:
     multi_hop_paths: list[dict[str, object]] = field(default_factory=list)
 
 
+@dataclass
+class Verdict:
+    ok: bool
+    invalid_citations: list[str] = field(default_factory=list)
+    unsupported_claims: list[str] = field(default_factory=list)
+    contradictions: list[str] = field(default_factory=list)
+    symbolic_findings: list[dict[str, object]] = field(default_factory=list)
+    llm_note: str = ""
+
+    def issues(self) -> list[str]:
+        items: list[str] = []
+        items += [f"Invalid citation: [{citation}]" for citation in self.invalid_citations]
+        items += [f"Unsupported claim: {claim}" for claim in self.unsupported_claims]
+        items += [f"Contradiction: {claim}" for claim in self.contradictions]
+        items += [
+            f"Symbolic check failed ({item.get('rule_id', 'rule')}): {item.get('message', '')}"
+            for item in self.symbolic_findings
+            if item.get("passed") is False
+        ]
+        return items
+
+
 class TeamState(TypedDict):
     question: str
     plan: list[SubQuestion]
     tasks: list[AgentTask]
     findings: list[Finding]
+    graph_proposals: list[dict[str, object]]
     draft: str
+    verdict: Verdict | None
+    iteration: int
     trace: ReasoningTrace

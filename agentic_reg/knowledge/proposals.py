@@ -11,6 +11,8 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Protocol
 
+from ..config import PROJECT_ROOT, Settings
+
 
 class ProposalGraph(Protocol):
     def has_node(self, node_id: str) -> bool:
@@ -106,6 +108,12 @@ def _stable_id(proposal: GraphUpdateProposal) -> str:
         ]
     )
     return hashlib.sha1(key.encode("utf-8")).hexdigest()[:12]
+
+
+def proposal_store_path(settings: Settings) -> Path:
+    if settings.graph_proposals_path:
+        return Path(settings.graph_proposals_path)
+    return PROJECT_ROOT / "data" / "store" / settings.domain / "graph_proposals.jsonl"
 
 
 def proposal_from_dict(data: dict[str, Any]) -> GraphUpdateProposal | None:
