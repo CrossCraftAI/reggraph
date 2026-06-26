@@ -84,7 +84,7 @@ Without them, **nothing in the Quick Start works**.
   - `--domain <name>` (required)
   - `--no-enrich` (skip LLM concept typing, build deterministic graph only)
   - Orchestrates: domain loading → chunking → vector indexing → graph construction → typed concept enrichment (unless `--no-enrich`)
-- [ ] **Implement `agentic_reg/agents/`** — Multi-agent orchestration (LangGraph).
+- [x] **Implement `agentic_reg/agents/`** — Multi-agent orchestration (LangGraph).
   - `__init__.py` with `get_orchestrator(settings, provider, vector_index, graph) -> Orchestrator`
   - Supervisor agent (decomposes question into sub-questions, max `max_subquestions`)
   - Specialist agents (clause analyst, cross-reference analyst)

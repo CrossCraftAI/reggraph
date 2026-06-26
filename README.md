@@ -12,10 +12,8 @@
 ## Status
 
 > **Work in progress.** This branch has the Phase 0 foundation for stores,
-> retrieval, tracing, a basic team interface, and Streamlit. The full
-> README-described multi-agent system is not complete yet: supervisor
-> decomposition, verification, self-correction, graph-curator proposals,
-> deployment polish, and cross-jurisdictional reasoning are still tracked in
+> retrieval, tracing, a bounded multi-agent team, and Streamlit. Deployment
+> polish and cross-jurisdictional reasoning are still tracked in
 > [TODO.md](TODO.md) and the open issues.
 
 RegGraph experiments with regulatory question-answering where citations are
@@ -28,7 +26,7 @@ deterministic checks flag hallucinated citation IDs such as `[article-99]`.
 - Build deterministic GDPR and UK DPA knowledge stores from bundled excerpts.
 - Store semantic chunks in Chroma with local sentence-transformer embeddings.
 - Build and persist NetworkX clause graphs with cross-reference edges.
-- Run a traced single agent or basic two-specialist team over graph-aware retrieval.
+- Run a traced single agent or bounded multi-agent team over graph-aware retrieval.
 - Use the Streamlit UI to ask questions, inspect answers, view traces, and see
   the clause graph.
 - Run the thin ask CLI over the built store with an LLM provider.
@@ -93,8 +91,6 @@ Without `--live`, eval uses synthetic answers for quick metric validation. With
 
 ## Current Roadmap
 
-- Finish issue #1's original Phase 0 agent scope: supervisor decomposition,
-  verification, and bounded self-correction.
 - Keep README claims aligned with working code so issue #6 can close cleanly.
 - Add hosted demo deployment bootstrap.
 - Make symbolic rules domain-pluggable for issue #5.
