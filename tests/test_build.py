@@ -71,6 +71,8 @@ def test_build_no_enrich_writes_store_without_requesting_provider(monkeypatch, t
     graph = KnowledgeGraph.load(domain.graph_path)
     assert graph.has_node("section-1")
     assert graph.has_node("section-2")
+    assert graph.g.nodes["section-1"]["text"] == "See Section 2."
+    assert graph.g.nodes["section-2"]["text"] == "Definitions."
     assert graph.has_edge("section-1", "section-2", "references")
 
 

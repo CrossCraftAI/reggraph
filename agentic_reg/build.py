@@ -42,7 +42,7 @@ def build(domain_name: str | None = None, *, enrich: bool = True) -> None:
     print("Building knowledge graph...")
     graph = KnowledgeGraph()
     for chunk in chunks:
-        graph.add_node(chunk.id, label=chunk.title, kind="clause")
+        graph.add_node(chunk.id, label=chunk.title, kind="clause", text=chunk.text)
     known_ids = {c.id for c in chunks}
     cross_refs = extract_cross_references(chunks)
     for source, target in cross_refs:
