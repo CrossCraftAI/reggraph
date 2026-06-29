@@ -36,6 +36,10 @@ deterministic checks flag hallucinated citation IDs such as `[article-99]`.
 
 ## Quick Start
 
+> **Work in progress.** The deterministic store build works from the bundled
+> excerpts. Live app and CLI answers also require a configured LLM provider and
+> freshly built local stores.
+
 ```bash
 git clone https://github.com/CrossCraftAI/reggraph.git
 cd reggraph

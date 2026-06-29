@@ -121,10 +121,10 @@ Without them, **nothing in the Quick Start works**.
 
 ## Phase 2 — Polish (P2)
 
-- [ ] **Make symbolic rules domain-pluggable** — `_deadline_clause` and rule triggers are hardcoded for GDPR/UK DPA. Extract into the `Domain` object or a rule-registry so adding a new domain does not require editing `symbolic.py`.
-- [ ] **Add a "Work in Progress" note** to the README Quick Start section until Phase 0 is complete. The current instructions do not work.
-- [ ] **Add `[project.entry-points]` for domain plugins** so external packages can ship new regulations via `agentic_reg.domains` entry point group (the config comment already references this, but the wiring isn't built).
-- [ ] **Add `mypy` or `pyright` to dev dependencies and CI** — the code uses Protocols which benefit from static checking.
+- [x] **Make symbolic rules domain-pluggable** — `_deadline_clause` and rule triggers are hardcoded for GDPR/UK DPA. Extract into the `Domain` object or a rule-registry so adding a new domain does not require editing `symbolic.py`.
+- [x] **Add a "Work in Progress" note** to the README Quick Start section until Phase 0 is complete. The current instructions do not work.
+- [x] **Add `[project.entry-points]` for domain plugins** so external packages can ship new regulations via `agentic_reg.domains` entry point group (the config comment already references this, but the wiring isn't built).
+- [x] **Add `mypy` or `pyright` to dev dependencies and CI** — the code uses Protocols which benefit from static checking.
 
 ---
 
