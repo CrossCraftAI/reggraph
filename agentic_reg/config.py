@@ -18,7 +18,7 @@ HTTP_URL_ADAPTER = TypeAdapter(AnyHttpUrl)
 
 LLMProviderName = Literal["github", "ollama", "anthropic"]
 AgentMode = Literal["single", "team"]
-GraphUpdateMode = Literal["off", "propose", "apply"]
+GraphUpdateMode = Literal["off", "propose"]
 
 
 class Settings(BaseSettings):
@@ -79,7 +79,7 @@ class Settings(BaseSettings):
     # Cap on spawned non-root tasks across the hierarchy.
     max_agent_tasks: int = Field(default=8, ge=1)
     symbolic_checks: bool = True  # deterministic high-confidence verification rules
-    graph_update_mode: GraphUpdateMode = "propose"  # off | propose | apply
+    graph_update_mode: GraphUpdateMode = "propose"  # off | propose
     graph_proposals_path: str | None = None  # optional override for review JSONL output
 
     @field_validator(

@@ -9,7 +9,6 @@ from ..config import Settings
 from ..knowledge.graph import KnowledgeGraph
 from ..knowledge.proposals import (
     GraphUpdateProposal,
-    apply_proposal,
     proposal_from_dict,
     proposal_store_path,
     validate_proposal,
@@ -334,10 +333,7 @@ class RegulatoryTeam:
                 proposal = proposal_from_dict(item)
                 if proposal is None:
                     continue
-                if mode == "apply":
-                    apply_proposal(proposal, self.graph)
-                else:
-                    validate_proposal(proposal, self.graph)
+                validate_proposal(proposal, self.graph)
                 proposals.append(proposal)
 
             if proposals:

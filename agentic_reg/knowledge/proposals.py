@@ -1,8 +1,7 @@
 """Reviewable graph-update proposals.
 
-Agents may suggest nodes or edges, but the graph only changes after deterministic
-validation and an explicit apply step. The default runtime path writes reviewed
-proposals to JSONL so a maintainer can inspect them before accepting changes.
+Agents may suggest nodes or edges, but the default runtime path only validates
+and writes reviewed proposals to JSONL so a maintainer can inspect them.
 """
 
 import hashlib

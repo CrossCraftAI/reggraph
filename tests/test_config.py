@@ -10,6 +10,7 @@ from agentic_reg.config import Settings
         ("llm_provider", "openai"),
         ("agent_mode", "swarm"),
         ("graph_update_mode", "auto"),
+        ("graph_update_mode", "apply"),
     ],
 )
 def test_settings_reject_unknown_enum_values(field, value):

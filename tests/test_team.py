@@ -203,9 +203,9 @@ def test_graph_update_mode_off_skips_proposals(tmp_path):
     assert not (tmp_path / "proposals.jsonl").exists()
 
 
-def test_graph_update_mode_apply_updates_graph(tmp_path):
-    class _ApplyProvider(LLMProvider):
-        name = "apply"
+def test_graph_update_mode_propose_reviews_without_mutating_graph(tmp_path):
+    class _ProposalProvider(LLMProvider):
+        name = "proposal"
 
         def complete(self, prompt, *, system=None, temperature=0.0):
             if "Check this draft answer" in prompt:
@@ -226,13 +226,13 @@ def test_graph_update_mode_apply_updates_graph(tmp_path):
     graph = _graph()
     settings = Settings(
         _env_file=None,
-        graph_update_mode="apply",
+        graph_update_mode="propose",
         graph_proposals_path=str(tmp_path / "proposals.jsonl"),
     )
-    team = RegulatoryTeam(_ApplyProvider(), _FakeIndex(), graph, settings)
-    trace = team.answer("Apply proposal")
+    team = RegulatoryTeam(_ProposalProvider(), _FakeIndex(), graph, settings)
+    trace = team.answer("Review proposal")
     graph_updates = next(step for step in trace.steps if step.name == "graph_updates")
 
-    assert graph.has_edge("article-6", "article-7", "depends_on")
-    assert graph_updates.data["proposals"][0]["status"] == "applied"
+    assert not graph.has_edge("article-6", "article-7", "depends_on")
+    assert graph_updates.data["proposals"][0]["status"] == "accepted"
     assert (tmp_path / "proposals.jsonl").exists()
