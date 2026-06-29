@@ -4,6 +4,8 @@ import re
 from dataclasses import asdict, dataclass, field
 from typing import Protocol
 
+from .._internal import extract_citations
+
 
 class GraphLike(Protocol):
     def has_node(self, node_id: str) -> bool:
@@ -19,16 +21,6 @@ class SymbolicFinding:
 
     def to_dict(self) -> dict[str, object]:
         return asdict(self)
-
-
-_CITATION_RE = re.compile(r"\[([a-z][a-z-]*-\d+)\]", flags=re.IGNORECASE)
-
-
-def _extract_citations(text: str) -> list[str]:
-    seen: dict[str, None] = {}
-    for match in _CITATION_RE.findall(text):
-        seen.setdefault(match.lower(), None)
-    return list(seen)
 
 
 def _has_any(text: str, words: set[str]) -> bool:
@@ -53,7 +45,7 @@ def _deadline_clause(graph: GraphLike) -> str | None:
 
 def run_symbolic_checks(question: str, answer: str, graph: GraphLike) -> list[SymbolicFinding]:
     text = f"{question}\n{answer}"
-    citations = _extract_citations(answer)
+    citations = extract_citations(answer)
     cited = set(citations)
     findings: list[SymbolicFinding] = []
 

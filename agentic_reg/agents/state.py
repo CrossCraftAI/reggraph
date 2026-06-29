@@ -1,19 +1,9 @@
 """State and data types for the multi-agent team."""
 
-import re
 from dataclasses import dataclass, field
 from typing import TypedDict
 
 from ..trace import ReasoningTrace
-
-_CITATION_RE = re.compile(r"\[([a-z][a-z-]*-\d+)\]", flags=re.IGNORECASE)
-
-
-def extract_citations(text: str) -> list[str]:
-    seen: dict[str, None] = {}
-    for match in _CITATION_RE.findall(text):
-        seen.setdefault(match.lower(), None)
-    return list(seen)
 
 
 @dataclass

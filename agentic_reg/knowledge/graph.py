@@ -9,15 +9,13 @@ avg_degree) — fine for ~100 nodes, but worth profiling before scaling.
 """
 
 import json
-import re
 from pathlib import Path
 
 import networkx as nx
 
+from agentic_reg._internal import extract_citations
 from agentic_reg.domains import Domain
 from agentic_reg.ingest import _make_id, load_chunks
-
-_CITATION_RE = re.compile(r"\[([a-z][a-z-]*-\d+)\]", flags=re.IGNORECASE)
 
 
 class KnowledgeGraph:
@@ -57,7 +55,7 @@ class KnowledgeGraph:
         for chunk in chunks:
             graph.add_node(chunk.id, label=chunk.title, kind="clause", text=chunk.text)
         for chunk in chunks:
-            for target in _extract_citations(chunk.text):
+            for target in extract_citations(chunk.text):
                 if target in known_ids and target != chunk.id:
                     graph.add_edge(chunk.id, target, "references")
         return graph
@@ -194,14 +192,6 @@ class KnowledgeGraph:
 
     def edges(self) -> list[tuple[str, str, str]]:
         return sorted((u, v, data.get("relation", "")) for u, v, data in self.g.edges(data=True))
-
-
-def _extract_citations(text: str) -> list[str]:
-    """Return deduplicated lower-case bracket citations."""
-    seen: dict[str, None] = {}
-    for match in _CITATION_RE.findall(text):
-        seen.setdefault(match.lower(), None)
-    return list(seen)
 
 
 def _article_id(heading: str) -> str:

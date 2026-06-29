@@ -1,10 +1,10 @@
 """Verification for team draft answers."""
 
-from .._internal import parse_json_object
+from .._internal import extract_citations, parse_json_object
 from ..knowledge.graph import KnowledgeGraph
 from ..knowledge.symbolic import run_symbolic_checks
 from ..providers.base import LLMProvider
-from .state import Finding, Verdict, extract_citations
+from .state import Finding, Verdict
 
 VERIFY_SYSTEM = "You are a strict verification agent. Respond with JSON only."
 VERIFY_PROMPT = """Check this draft answer against the supporting findings.

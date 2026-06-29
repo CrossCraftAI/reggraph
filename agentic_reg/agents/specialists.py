@@ -3,12 +3,13 @@
 from collections.abc import Callable
 from typing import TypedDict
 
+from .._internal import extract_citations
 from ..config import Settings
 from ..knowledge.graph import KnowledgeGraph
 from ..knowledge.vectors import VectorIndex
 from ..providers.base import LLMProvider
 from ..retrieval import RetrievedContext, hybrid_retrieve
-from .state import Finding, extract_citations
+from .state import Finding
 
 _CLAUSE_SYSTEM = (
     "You are a regulatory Clause Analyst. Interpret the provided clauses. "

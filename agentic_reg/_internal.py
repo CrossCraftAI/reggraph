@@ -3,6 +3,8 @@
 import json
 import re
 
+_CITATION_RE = re.compile(r"\[([a-z][a-z-]*-\d+)\]", flags=re.IGNORECASE)
+
 
 def parse_json_object(raw: str) -> dict:
     """Pull the first JSON object out of a string that may contain extra prose.
@@ -18,3 +20,11 @@ def parse_json_object(raw: str) -> dict:
     except json.JSONDecodeError:
         return {}
     return data if isinstance(data, dict) else {}
+
+
+def extract_citations(text: str) -> list[str]:
+    """Return deduplicated lower-case bracket citations from text."""
+    seen: dict[str, None] = {}
+    for match in _CITATION_RE.findall(text):
+        seen.setdefault(match.lower(), None)
+    return list(seen)
