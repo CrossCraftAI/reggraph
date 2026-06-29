@@ -5,7 +5,7 @@ from types import SimpleNamespace
 import pytest
 
 from agentic_reg import build as build_module
-from agentic_reg.domains import Domain
+from agentic_reg.domains import Domain, RequiredCitationRule, SymbolicRules
 from agentic_reg.domains import base as domain_base
 from agentic_reg.ingest import Chunk
 from agentic_reg.knowledge.graph import KnowledgeGraph
@@ -32,6 +32,17 @@ def test_build_no_enrich_writes_store_without_requesting_provider(monkeypatch, t
         description="x",
         source_path=tmp_path / "source.md",
         unit_label="section",
+        symbolic_rules=SymbolicRules(
+            required_citation_rules=(
+                RequiredCitationRule(
+                    rule_id="test_rule",
+                    trigger_groups=(("test",),),
+                    required_citations=("section-1",),
+                    passed_message="Test answer cites the section.",
+                    missing_message="Test answer should cite",
+                ),
+            )
+        ),
     )
     chunks = [
         Chunk(id="section-1", title="Section 1", text="See Section 2."),
@@ -74,6 +85,7 @@ def test_build_no_enrich_writes_store_without_requesting_provider(monkeypatch, t
     assert graph.g.nodes["section-1"]["text"] == "See Section 2."
     assert graph.g.nodes["section-2"]["text"] == "Definitions."
     assert graph.has_edge("section-1", "section-2", "references")
+    assert graph.symbolic_rules.required_citation_rules[0].rule_id == "test_rule"
 
 
 def test_main_rejects_unknown_domain():

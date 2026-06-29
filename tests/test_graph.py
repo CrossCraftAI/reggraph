@@ -1,4 +1,5 @@
 from agentic_reg.domains import get_domain
+from agentic_reg.domains.builtin import GDPR
 from agentic_reg.knowledge.graph import KnowledgeGraph
 
 
@@ -43,6 +44,7 @@ def test_clause_paths_are_multi_hop_and_clause_only():
 
 def test_save_and_load_roundtrip(tmp_path):
     graph = _sample_graph()
+    graph.symbolic_rules = GDPR.symbolic_rules
     path = tmp_path / "graph.json"
     graph.save(path)
 
@@ -52,6 +54,7 @@ def test_save_and_load_roundtrip(tmp_path):
     assert loaded.node_count == 4
     assert loaded.num_edges == 2
     assert loaded.edge_count == 2
+    assert loaded.symbolic_rules.deadline_rules[0].citation == "article-33"
     nodes, edges = loaded.expand(["article-6"], hops=1)
     assert {node["id"] for node in nodes} == {"article-6", "article-7", "article-9"}
     assert {edge["relation"] for edge in edges} == {"references"}
@@ -61,6 +64,9 @@ def test_build_compatibility_uses_domain_chunks():
     graph = KnowledgeGraph.build(get_domain("gdpr"))
 
     assert graph.has_node("article-6")
+    assert graph.symbolic_rules.required_citation_rules[0].rule_id == (
+        "special_category_requires_basis"
+    )
     assert graph.has_edge("article-6", "article-7", "references")
     assert "article-6" in graph.nodes()
     assert all(source != target for source, target, _ in graph.edges())

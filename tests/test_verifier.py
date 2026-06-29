@@ -1,11 +1,12 @@
 from agentic_reg.agents.state import Finding
 from agentic_reg.agents.verifier import verify
+from agentic_reg.domains.builtin import GDPR
 from agentic_reg.knowledge.graph import KnowledgeGraph
 from agentic_reg.providers.base import LLMProvider
 
 
 def _graph() -> KnowledgeGraph:
-    graph = KnowledgeGraph()
+    graph = KnowledgeGraph(symbolic_rules=GDPR.symbolic_rules)
     for node_id in ("article-6", "article-7", "article-9", "article-33"):
         graph.add_node(node_id, label=node_id, kind="clause")
     return graph

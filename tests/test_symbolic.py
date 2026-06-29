@@ -1,20 +1,30 @@
+from agentic_reg.domains import DeadlineRule, RequiredCitationRule, SymbolicRules
+from agentic_reg.domains.builtin import GDPR, UK_DPA
 from agentic_reg.knowledge.symbolic import run_symbolic_checks
 
 
 class _Graph:
-    def __init__(self, node_ids: set[str]) -> None:
+    def __init__(
+        self,
+        node_ids: set[str],
+        symbolic_rules: SymbolicRules | None = None,
+    ) -> None:
         self._node_ids = node_ids
+        self.symbolic_rules = symbolic_rules or SymbolicRules()
 
     def has_node(self, node_id: str) -> bool:
         return node_id in self._node_ids
 
 
 def _gdpr_graph() -> _Graph:
-    return _Graph({"article-6", "article-7", "article-9", "article-17", "article-33"})
+    return _Graph(
+        {"article-6", "article-7", "article-9", "article-17", "article-33"},
+        GDPR.symbolic_rules,
+    )
 
 
-def _graph_with_nodes(*nodes: str) -> _Graph:
-    return _Graph(set(nodes))
+def _graph_with_nodes(*nodes: str, symbolic_rules: SymbolicRules | None = None) -> _Graph:
+    return _Graph(set(nodes), symbolic_rules)
 
 
 def _finding(findings, rule_id: str):
@@ -93,7 +103,7 @@ def test_special_category_requires_specific_condition_and_lawful_basis():
 
 
 def test_special_category_uses_uk_dpa_condition_and_lawful_basis():
-    graph = _graph_with_nodes("section-8", "section-10")
+    graph = _graph_with_nodes("section-8", "section-10", symbolic_rules=UK_DPA.symbolic_rules)
     findings = run_symbolic_checks(
         "Can biometric data be processed?",
         "Yes, if the condition and lawful basis are satisfied [section-10] [section-8].",
@@ -109,7 +119,7 @@ def test_special_category_rule_skips_when_graph_has_no_required_clauses():
     findings = run_symbolic_checks(
         "Can health data be processed?",
         "The graph only has this placeholder clause for the test [article-33].",
-        _graph_with_nodes("article-33"),
+        _graph_with_nodes("article-33", symbolic_rules=GDPR.symbolic_rules),
     )
 
     assert [item.rule_id for item in findings] == ["citation_validity"]
@@ -188,7 +198,7 @@ def test_breach_notification_deadline_is_case_insensitive():
 
 
 def test_breach_notification_uses_uk_dpa_deadline_clause():
-    graph = _graph_with_nodes("section-67")
+    graph = _graph_with_nodes("section-67", symbolic_rules=UK_DPA.symbolic_rules)
     findings = run_symbolic_checks(
         "What must happen after a personal data breach notification?",
         "The controller must notify within 72 hours where feasible [section-67].",
@@ -201,7 +211,7 @@ def test_breach_notification_uses_uk_dpa_deadline_clause():
 
 
 def test_breach_notification_skips_deadline_rule_when_no_deadline_clause_exists():
-    graph = _graph_with_nodes("article-6")
+    graph = _graph_with_nodes("article-6", symbolic_rules=GDPR.symbolic_rules)
     findings = run_symbolic_checks(
         "What must happen after a personal data breach notification?",
         "The controller should assess the breach [article-6].",
@@ -225,3 +235,54 @@ def test_overlapping_rule_triggers_are_reported_independently():
 
     assert by_rule["special_category_requires_basis"].passed
     assert by_rule["withdrawal_erasure_chain"].passed
+
+
+def test_custom_domain_required_rule_runs_without_symbolic_code_changes():
+    rules = SymbolicRules(
+        required_citation_rules=(
+            RequiredCitationRule(
+                rule_id="permit_requires_clause",
+                trigger_groups=(("permit",),),
+                required_citations=("rule-12",),
+                passed_message="Permit answer cites the source rule.",
+                missing_message="Permit answer should cite",
+            ),
+        )
+    )
+    graph = _graph_with_nodes("rule-12", symbolic_rules=rules)
+
+    findings = run_symbolic_checks(
+        "Is a permit required?",
+        "Yes, a permit is required.",
+        graph,
+    )
+    custom = _finding(findings, "permit_requires_clause")
+
+    assert not custom.passed
+    assert custom.message == "Permit answer should cite: rule-12"
+
+
+def test_custom_domain_deadline_rule_runs_without_symbolic_code_changes():
+    rules = SymbolicRules(
+        deadline_rules=(
+            DeadlineRule(
+                rule_id="filing_deadline",
+                trigger_groups=(("file", "filing"),),
+                citation="rule-20",
+                deadline_pattern=r"\b30\s+days?\b",
+                passed_message="Filing answer includes the deadline and source rule.",
+                missing_message="Filing answer should",
+                missing_deadline_message="mention the 30 day deadline",
+            ),
+        )
+    )
+    graph = _graph_with_nodes("rule-20", symbolic_rules=rules)
+
+    findings = run_symbolic_checks(
+        "When must we file?",
+        "The filing is due within 30 days [rule-20].",
+        graph,
+    )
+    deadline = _finding(findings, "filing_deadline")
+
+    assert deadline.passed

@@ -40,7 +40,7 @@ def build(domain_name: str | None = None, *, enrich: bool = True) -> None:
     print(f"  vector store now holds {vector_index.count()} chunk(s).")
 
     print("Building knowledge graph...")
-    graph = KnowledgeGraph()
+    graph = KnowledgeGraph(symbolic_rules=domain.symbolic_rules)
     for chunk in chunks:
         graph.add_node(chunk.id, label=chunk.title, kind="clause", text=chunk.text)
     known_ids = {c.id for c in chunks}

@@ -5,6 +5,7 @@ from dataclasses import asdict, dataclass, field
 from typing import Protocol
 
 from .._internal import extract_citations
+from ..domains import SymbolicRules
 
 
 class GraphLike(Protocol):
@@ -23,12 +24,16 @@ class SymbolicFinding:
         return asdict(self)
 
 
-def _has_any(text: str, words: set[str]) -> bool:
+def _has_any(text: str, words: tuple[str, ...] | set[str]) -> bool:
     haystack = text.lower()
     return any(word in haystack for word in words)
 
 
-def _available_required(graph: GraphLike, candidates: list[str]) -> list[str]:
+def _matches(text: str, trigger_groups: tuple[tuple[str, ...], ...]) -> bool:
+    return all(_has_any(text, group) for group in trigger_groups)
+
+
+def _available_required(graph: GraphLike, candidates: tuple[str, ...]) -> list[str]:
     return [node_id for node_id in candidates if graph.has_node(node_id)]
 
 
@@ -36,17 +41,11 @@ def _missing(required: list[str], cited: set[str]) -> list[str]:
     return [node_id for node_id in required if node_id not in cited]
 
 
-def _deadline_clause(graph: GraphLike) -> str | None:
-    for node_id in ("article-33", "section-67"):
-        if graph.has_node(node_id):
-            return node_id
-    return None
-
-
 def run_symbolic_checks(question: str, answer: str, graph: GraphLike) -> list[SymbolicFinding]:
     text = f"{question}\n{answer}"
     citations = extract_citations(answer)
     cited = set(citations)
+    rules = getattr(graph, "symbolic_rules", None) or SymbolicRules()
     findings: list[SymbolicFinding] = []
 
     invalid = [citation for citation in citations if not graph.has_node(citation)]
@@ -61,60 +60,45 @@ def run_symbolic_checks(question: str, answer: str, graph: GraphLike) -> list[Sy
         )
     )
 
-    if _has_any(text, {"special category", "special categories", "health", "biometric"}):
-        required = _available_required(graph, ["article-9", "section-10"]) + _available_required(
-            graph, ["article-6", "section-8"]
+    for rule in rules.required_citation_rules:
+        if not _matches(text, rule.trigger_groups):
+            continue
+        required = _available_required(graph, rule.required_citations)
+        if not required:
+            continue
+        missing = _missing(required, cited)
+        findings.append(
+            SymbolicFinding(
+                rule.rule_id,
+                not missing,
+                rule.passed_message
+                if not missing
+                else rule.missing_message + ": " + ", ".join(missing),
+                required,
+            )
         )
-        if required:
-            missing = _missing(required, cited)
-            findings.append(
-                SymbolicFinding(
-                    "special_category_requires_basis",
-                    not missing,
-                    "Special-category processing cites both the specific condition "
-                    "and lawful basis."
-                    if not missing
-                    else "Special-category answer should cite: " + ", ".join(missing),
-                    required,
-                )
-            )
 
-    if _has_any(text, {"withdraw", "withdraws", "withdrawal"}) and _has_any(
-        text, {"erase", "erasure", "deleted"}
-    ):
-        required = _available_required(graph, ["article-17", "article-7", "article-6"])
-        if required:
-            missing = _missing(required, cited)
-            findings.append(
-                SymbolicFinding(
-                    "withdrawal_erasure_chain",
-                    not missing,
-                    "Withdrawal/erasure answer cites erasure, consent, and lawful-basis clauses."
-                    if not missing
-                    else "Withdrawal/erasure answer should cite: " + ", ".join(missing),
-                    required,
-                )
-            )
-
-    if _has_any(text, {"breach", "notify", "notification"}):
-        clause = _deadline_clause(graph)
-        if clause:
-            has_deadline = bool(re.search(r"\b72\s+hours?\b", answer, flags=re.IGNORECASE))
-            passed = has_deadline and clause in cited
+    for rule in rules.deadline_rules:
+        if not _matches(text, rule.trigger_groups) or not graph.has_node(rule.citation):
+            continue
+        has_deadline = bool(re.search(rule.deadline_pattern, answer, flags=re.IGNORECASE))
+        passed = has_deadline and rule.citation in cited
+        if passed:
+            message = rule.passed_message
+        else:
             detail = []
             if not has_deadline:
-                detail.append("mention the 72 hour deadline")
-            if clause not in cited:
-                detail.append(f"cite {clause}")
-            findings.append(
-                SymbolicFinding(
-                    "breach_notification_deadline",
-                    passed,
-                    "Breach notification answer includes the deadline and source clause."
-                    if passed
-                    else "Breach notification answer should " + " and ".join(detail) + ".",
-                    [clause],
-                )
+                detail.append(rule.missing_deadline_message)
+            if rule.citation not in cited:
+                detail.append(f"cite {rule.citation}")
+            message = rule.missing_message + " " + " and ".join(detail) + "."
+        findings.append(
+            SymbolicFinding(
+                rule.rule_id,
+                passed,
+                message,
+                [rule.citation],
             )
+        )
 
     return findings

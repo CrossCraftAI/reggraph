@@ -14,14 +14,20 @@ from pathlib import Path
 import networkx as nx
 
 from agentic_reg._internal import extract_citations
-from agentic_reg.domains import Domain
+from agentic_reg.domains import Domain, SymbolicRules
 from agentic_reg.ingest import _make_id, load_chunks
 
 
 class KnowledgeGraph:
-    def __init__(self, graph: nx.DiGraph | None = None) -> None:
+    def __init__(
+        self,
+        graph: nx.DiGraph | None = None,
+        *,
+        symbolic_rules: SymbolicRules | None = None,
+    ) -> None:
         self.g: nx.DiGraph = graph if graph is not None else nx.DiGraph()
         self._graph = self.g  # compatibility for the older eval prototype
+        self.symbolic_rules = symbolic_rules or SymbolicRules()
 
     # --- construction ---
     def add_node(self, node_id: str, *, label: str, kind: str, **attrs: object) -> None:
@@ -49,7 +55,7 @@ class KnowledgeGraph:
         The primary build path now lives in ``agentic_reg.build``. This helper
         still builds a deterministic clause graph from the domain document.
         """
-        graph = cls()
+        graph = cls(symbolic_rules=domain.symbolic_rules)
         chunks = load_chunks(domain.source_path)
         known_ids = {chunk.id for chunk in chunks}
         for chunk in chunks:
@@ -134,13 +140,15 @@ class KnowledgeGraph:
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
         data = nx.node_link_data(self.g, edges="edges")
+        data["symbolic_rules"] = self.symbolic_rules.to_dict()
         path.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
 
     @classmethod
     def load(cls, path: str | Path) -> "KnowledgeGraph":
         data = json.loads(Path(path).read_text(encoding="utf-8"))
+        symbolic_rules = SymbolicRules.from_dict(data.get("symbolic_rules"))
         if isinstance(data.get("nodes"), dict):
-            graph = cls()
+            graph = cls(symbolic_rules=symbolic_rules)
             for node_id, attrs in data.get("nodes", {}).items():
                 graph.add_node(
                     node_id,
@@ -153,7 +161,7 @@ class KnowledgeGraph:
                 graph.add_edge(edge["source"], edge["target"], edge.get("relation", "references"))
             return graph
         graph = nx.node_link_graph(data, directed=True, multigraph=False, edges="edges")
-        return cls(graph)
+        return cls(graph, symbolic_rules=symbolic_rules)
 
     def view(self, kinds: set[str] | None = None) -> tuple[list[dict], list[dict]]:
         """Return (nodes, edges) for visualization, optionally filtered by kind."""
