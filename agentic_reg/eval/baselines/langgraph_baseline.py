@@ -88,7 +88,7 @@ class LangGraphBaseline:
         self._provider = provider
         self._vector_index = vector_index
         self._top_k = top_k
-        self._graph = self._build_graph()
+        self._graph: Any = self._build_graph()
 
     # -- public API ------------------------------------------------------------
 
@@ -104,7 +104,7 @@ class LangGraphBaseline:
 
     # -- graph construction ----------------------------------------------------
 
-    def _build_graph(self) -> StateGraph:
+    def _build_graph(self) -> Any:
         """Build a simple retrieve → reason → answer LangGraph pipeline."""
         builder = StateGraph(BaselineState)
 

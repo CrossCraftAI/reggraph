@@ -7,6 +7,7 @@ stack (torch), so keep it out of light-weight import paths.
 
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any, cast
 
 from ..domains import Domain
 from ..ingest import Chunk, load_chunks
@@ -49,7 +50,8 @@ class VectorIndex:
         return index
 
     def _embed(self, texts: list[str]) -> list[list[float]]:
-        return self._embedder.encode(texts, normalize_embeddings=True).tolist()
+        embeddings = self._embedder.encode(texts, normalize_embeddings=True).tolist()
+        return cast(list[list[float]], embeddings)
 
     def add(self, chunks: list[Chunk]) -> None:
         if not chunks:
@@ -57,7 +59,7 @@ class VectorIndex:
         self._collection.upsert(
             ids=[c.id for c in chunks],
             documents=[c.text for c in chunks],
-            embeddings=self._embed([c.text for c in chunks]),
+            embeddings=cast(Any, self._embed([c.text for c in chunks])),
             metadatas=[{"title": c.title} for c in chunks],
         )
 
@@ -73,17 +75,21 @@ class VectorIndex:
         if total == 0:
             return []
         result = self._collection.query(
-            query_embeddings=self._embed([query]),
+            query_embeddings=cast(Any, self._embed([query])),
             n_results=min(top_k, total),
         )
         hits: list[VectorHit] = []
-        for i in range(len(result["ids"][0])):
+        ids = cast(list[list[str]], result["ids"] or [[]])
+        metadatas = cast(list[list[dict[str, object]]], result["metadatas"] or [[]])
+        documents = cast(list[list[str]], result["documents"] or [[]])
+        distances = cast(list[list[float]], result["distances"] or [[]])
+        for i in range(len(ids[0])):
             hits.append(
                 VectorHit(
-                    id=result["ids"][0][i],
-                    title=result["metadatas"][0][i].get("title", ""),
-                    text=result["documents"][0][i],
-                    score=float(result["distances"][0][i]),
+                    id=ids[0][i],
+                    title=str(metadatas[0][i].get("title", "")),
+                    text=documents[0][i],
+                    score=float(distances[0][i]),
                 )
             )
         return hits

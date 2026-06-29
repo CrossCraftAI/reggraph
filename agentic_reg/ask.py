@@ -9,9 +9,10 @@ Usage::
 import argparse
 import sys
 from pathlib import Path
+from typing import cast
 
 from agentic_reg.agents import get_orchestrator
-from agentic_reg.config import get_settings
+from agentic_reg.config import AgentMode, get_settings
 from agentic_reg.domains import get_domain
 from agentic_reg.knowledge.graph import KnowledgeGraph
 from agentic_reg.knowledge.vectors import VectorIndex
@@ -23,7 +24,7 @@ def answer(
     question: str,
     *,
     domain_name: str = "gdpr",
-    mode: str | None = None,
+    mode: AgentMode | None = None,
 ) -> ReasoningTrace:
     """Run the configured orchestrator and return its reasoning trace."""
     settings = get_settings()
@@ -58,7 +59,7 @@ def main(argv: list[str] | None = None) -> None:
         print("No question provided.", file=sys.stderr)
         sys.exit(1)
 
-    trace = answer(question, domain_name=args.domain, mode=args.mode)
+    trace = answer(question, domain_name=args.domain, mode=cast(AgentMode | None, args.mode))
     output = (
         trace.to_json()
         if args.trace_only
