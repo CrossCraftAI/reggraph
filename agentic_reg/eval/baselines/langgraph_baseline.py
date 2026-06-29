@@ -1,7 +1,8 @@
-"""Vanilla LangGraph baseline for regulatory QA — vector-only RAG.
+"""Legacy vector-only LangGraph baseline for direct experiments.
 
-This is what a competent compliance team would build in a week using LangGraph +
-ChromaDB, **without** RegGraph's specialized regulatory layers:
+The Phase 1 eval CLI now uses the canonical ``single``, ``team``, and
+``team-no-graph`` configs. This class remains available for older direct
+experiments that want a hand-rolled vector-only LangGraph control:
 
 * No typed knowledge graph (no concept nodes, no typed relations)
 * No multi-hop clause-path traversal
@@ -73,8 +74,8 @@ class LangGraphBaseline:
     regulatory-specific architecture (typed graph, symbolic checks, deterministic
     citation verification, pluggable domains).
 
-    Use it as the control group in ablation studies:
-        ``python -m agentic_reg.eval --configs reggraph,langgraph``
+    The Phase 1 CLI does not instantiate this class; use ``team-no-graph`` for
+    the supported graph-ablation config.
     """
 
     def __init__(

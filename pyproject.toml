@@ -21,7 +21,7 @@ dependencies = [
 
 [project.scripts]
 reggraph-build = "agentic_reg.build:main"
-reggraph-eval = "agentic_reg.eval.__main__:main"
+reggraph-eval = "agentic_reg.eval.eval:main"
 
 [project.optional-dependencies]
 # `uv sync --extra anthropic` (or pip install '.[anthropic]') adds the Claude provider.

@@ -30,8 +30,8 @@ deterministic checks flag hallucinated citation IDs such as `[article-99]`.
 - Use the Streamlit UI to ask questions, inspect answers, view traces, and see
   the clause graph.
 - Run the thin ask CLI over the built store with an LLM provider.
-- Run synthetic and live evaluation configs for RegGraph vs a LangGraph-style
-  baseline.
+- Run fixture-mode metric smoke checks or live evals for `single`, `team`, and
+  `team-no-graph` configs.
 - Validate graph-update proposals before they are written or applied.
 
 ## Quick Start
@@ -58,7 +58,7 @@ uv run python -m agentic_reg.ask "What lawful bases allow processing of personal
 To run the deterministic eval smoke:
 
 ```bash
-uv run python -m agentic_reg.eval --configs reggraph,langgraph --limit 4
+uv run python -m agentic_reg.eval --configs single,team,team-no-graph --limit 4
 ```
 
 ## Configuration
@@ -86,8 +86,9 @@ The eval harness compares configs on deterministic metrics:
 - multi-hop recall
 - optional LLM judge quality
 
-Without `--live`, eval uses synthetic answers for quick metric validation. With
-`--live`, it calls the configured provider.
+Without `--live`, eval uses deterministic fixture answers to validate metric
+plumbing; this output is marked as non-benchmark. With `--live`, it calls the
+configured provider and fails if the graph/vector store is missing.
 
 ## Current Roadmap
 

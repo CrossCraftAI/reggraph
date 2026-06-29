@@ -101,7 +101,7 @@ Without them, **nothing in the Quick Start works**.
 
 ## Phase 1 — Evaluation, CI, hardening (P1)
 
-- [ ] **Implement `agentic_reg/eval.py`** — Evaluation harness (`python -m agentic_reg.eval`).
+- [x] **Implement `agentic_reg/eval.py`** — Evaluation harness (`python -m agentic_reg.eval`).
   - `--configs single,team,team-no-graph` (agent mode + graph ablation)
   - `--limit N` (cap test cases)
   - Deterministic metrics: citation F1, hallucination rate, multi-hop recall
@@ -113,9 +113,9 @@ Without them, **nothing in the Quick Start works**.
   - Runs on push/PR to `main`
   - Steps: checkout → install uv → `uv sync` → `uv run ruff check .` → `uv run ruff format --check .` → `uv run pytest`
   - CI badge in README now points to the real workflow
-- [ ] **Add config validation** — Use `Literal` types or Pydantic validators on `llm_provider`, `agent_mode`, and `graph_update_mode` so misconfiguration fails fast at startup rather than deep in provider/agent code.
-- [ ] **Increase test coverage** on `validate_proposal` — exercise rejected paths: invalid node kinds, invalid relations, missing evidence, non-existent source/target nodes, empty citations.
-- [ ] **Increase test coverage** on `run_symbolic_checks` — UK DPA `section-67` deadline path, graph with no breach-deadline clause at all, answers with overlapping rule triggers.
+- [x] **Add config validation** — Use `Literal` types or Pydantic validators on `llm_provider`, `agent_mode`, and `graph_update_mode` so misconfiguration fails fast at startup rather than deep in provider/agent code.
+- [x] **Increase test coverage** on `validate_proposal` — exercise rejected paths: invalid node kinds, invalid relations, missing evidence, non-existent source/target nodes, empty citations.
+- [x] **Increase test coverage** on `run_symbolic_checks` — UK DPA `section-67` deadline path, graph with no breach-deadline clause at all, answers with overlapping rule triggers.
 
 ---
 
